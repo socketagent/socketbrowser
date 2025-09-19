@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Socket Browser</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="browser-chrome">
+        <div class="address-bar">
+            <input type="text" id="url-input" placeholder="Enter Socket Agent API URL (e.g., http://localhost:8001)"
+                   value="http://localhost:8001">
+            <button id="navigate-btn">Go</button>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Discovering API and generating interface...</p>
+        </div>
+
+        <div id="welcome" class="welcome-screen">
+            <h1>🚀 Socket Browser</h1>
+            <p>The next-generation browser that generates UI from Socket Agent APIs using LLMs.</p>
+            <p>Enter a Socket Agent API URL above to get started!</p>
+
+            <div class="quick-links">
+                <h3>Try these example APIs:</h3>
+                <button class="quick-link" data-url="http://localhost:8001">Grocery Store API</button>
+                <button class="quick-link" data-url="http://localhost:8002">Recipe API</button>
+                <button class="quick-link" data-url="http://localhost:8003">Banking API</button>
+                <button class="quick-link" data-url="http://localhost:8004">E-commerce API</button>
+            </div>
+        </div>
+
+        <div id="generated-ui" class="hidden">
+            <!-- Generated UI will be inserted here by the LLM -->
+        </div>
+
+        <div id="error" class="error-screen hidden">
+            <h2>❌ Error</h2>
+            <p id="error-message"></p>
+            <button id="retry-btn">Try Again</button>
+        </div>
+    </div>
+
+    <div class="debug-panel hidden" id="debug-panel">
+        <h3>Debug Info</h3>
+        <div id="debug-content"></div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
