@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
 
 let mainWindow;
 
@@ -8,9 +9,9 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      enableRemoteModule: true
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, 'assets', 'icon.png')
   });
@@ -24,6 +25,59 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+/**
+ * Call Python bridge script with command and arguments
+ */
+async function callPythonBridge(command, args = []) {
+  return new Promise((resolve, reject) => {
+    const bridgePath = path.join(__dirname, 'python', 'bridge.py');
+    const pythonPath = path.join(__dirname, '..', 'browser-env', 'bin', 'python3');
+    const pythonArgs = [bridgePath, command, ...args];
+
+    console.log(`Calling Python bridge: ${pythonPath} ${pythonArgs.join(' ')}`);
+
+    const pythonProcess = spawn(pythonPath, pythonArgs, {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        try {
+          // Parse JSON response from Python
+          const result = JSON.parse(stdout.trim());
+
+          if (result.error) {
+            reject(new Error(result.error));
+          } else {
+            resolve(result);
+          }
+        } catch (parseError) {
+          console.error('Failed to parse Python response:', stdout);
+          reject(new Error(`Failed to parse Python response: ${parseError.message}`));
+        }
+      } else {
+        console.error('Python bridge stderr:', stderr);
+        reject(new Error(`Python bridge failed with code ${code}: ${stderr}`));
+      }
+    });
+
+    pythonProcess.on('error', (error) => {
+      reject(new Error(`Failed to spawn Python process: ${error.message}`));
+    });
   });
 }
 
@@ -43,18 +97,22 @@ app.on('activate', () => {
 
 // Handle Socket Agent API discovery
 ipcMain.handle('discover-socket-agent', async (event, url) => {
-  const { discoverSocketAgent } = require('./api/discovery');
-  return await discoverSocketAgent(url);
+  return await callPythonBridge('discover', [url]);
 });
 
-// Handle LLM UI generation
-ipcMain.handle('generate-ui', async (event, descriptor) => {
-  const { generateUI } = require('./llm/ui-generator');
-  return await generateUI(descriptor);
+// Handle complete website generation
+ipcMain.handle('generate-website', async (event, descriptor) => {
+  const descriptorJson = JSON.stringify(descriptor);
+  return await callPythonBridge('generate-website', [descriptorJson]);
 });
 
 // Handle API calls
 ipcMain.handle('call-api', async (event, url, endpoint, params) => {
-  const { callAPI } = require('./api/client');
-  return await callAPI(url, endpoint, params);
+  const paramsJson = JSON.stringify(params);
+  return await callPythonBridge('call-api', [url, endpoint, paramsJson]);
+});
+
+// Handle natural language queries
+ipcMain.handle('ask-question', async (event, url, question) => {
+  return await callPythonBridge('ask', [url, question]);
 });

@@ -1,8 +1,11 @@
-const { ipcRenderer } = require('electron');
+// Use the exposed electronAPI instead of direct ipcRenderer
 
 // DOM elements
 const urlInput = document.getElementById('url-input');
 const navigateBtn = document.getElementById('navigate-btn');
+const naturalLanguageBar = document.getElementById('natural-language-bar');
+const questionInput = document.getElementById('question-input');
+const askBtn = document.getElementById('ask-btn');
 const welcomeScreen = document.getElementById('welcome');
 const loadingScreen = document.getElementById('loading');
 const generatedUI = document.getElementById('generated-ui');
@@ -21,6 +24,12 @@ urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleNavigation();
 });
 retryBtn.addEventListener('click', handleNavigation);
+
+// Natural language event listeners
+askBtn.addEventListener('click', handleNaturalLanguageQuery);
+questionInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleNaturalLanguageQuery();
+});
 
 // Quick links
 document.querySelectorAll('.quick-link').forEach(btn => {
@@ -49,17 +58,28 @@ async function handleNavigation() {
     try {
         // Step 1: Discover Socket Agent API
         log('Discovering Socket Agent API...');
-        const descriptor = await ipcRenderer.invoke('discover-socket-agent', url);
-        currentDescriptor = descriptor;
-        log('API discovered:', descriptor);
+        const discoveryResult = await window.electronAPI.discoverSocketAgent(url);
 
-        // Step 2: Generate UI using LLM
-        log('Generating UI with LLM...');
-        const generatedHTML = await ipcRenderer.invoke('generate-ui', descriptor);
-        log('UI generated');
+        if (!discoveryResult.success) {
+            throw new Error(discoveryResult.error);
+        }
 
-        // Step 3: Display generated UI
-        showGeneratedUI(generatedHTML);
+        currentDescriptor = discoveryResult.descriptor;
+        log('API discovered:', currentDescriptor);
+
+        // Step 2: Generate complete website using LLM
+        log('Generating complete website with LLM...');
+        const websiteResult = await window.electronAPI.generateWebsite(currentDescriptor);
+
+        if (!websiteResult.success) {
+            throw new Error(websiteResult.error || 'Website generation failed');
+        }
+
+        const generatedWebsite = websiteResult.html;
+        log('Website generated');
+
+        // Step 3: Display generated website
+        showGeneratedWebsite(generatedWebsite);
 
     } catch (error) {
         log('Error:', error.message);
@@ -72,13 +92,15 @@ function showLoading() {
     loadingScreen.classList.remove('hidden');
 }
 
-function showGeneratedUI(html) {
+function showGeneratedWebsite(html) {
     hideAllScreens();
     generatedUI.innerHTML = html;
     generatedUI.classList.remove('hidden');
 
-    // Bind event handlers to generated UI
-    bindGeneratedUIEvents();
+    // Hide the natural language bar for now - complete websites shouldn't need it
+    naturalLanguageBar.classList.add('hidden');
+
+    log('Complete website loaded and ready for interaction');
 }
 
 function showError(message) {
@@ -89,6 +111,7 @@ function showError(message) {
 
 function showWelcome() {
     hideAllScreens();
+    naturalLanguageBar.classList.add('hidden');
     welcomeScreen.classList.remove('hidden');
 }
 
@@ -134,11 +157,16 @@ async function handleAPICall(endpoint, params, buttonElement) {
 
     try {
         log(`Calling API: ${endpoint} with params:`, params);
-        const result = await ipcRenderer.invoke('call-api', currentUrl, endpoint, params);
-        log('API result:', result);
+        const apiResult = await ipcRenderer.invoke('call-api', currentUrl, endpoint, params);
+        log('API result:', apiResult);
 
-        // Display result in the UI
-        displayAPIResult(result, buttonElement);
+        if (apiResult.success) {
+            // Display successful result
+            displayAPIResult(apiResult.data, buttonElement);
+        } else {
+            // Display error from API
+            displayAPIError(apiResult.error, buttonElement);
+        }
 
     } catch (error) {
         log('API call error:', error.message);
@@ -219,6 +247,73 @@ function log(message, data = null) {
     debugContent.scrollTop = debugContent.scrollHeight;
 
     console.log(message, data);
+}
+
+async function handleNaturalLanguageQuery() {
+    const question = questionInput.value.trim();
+    if (!question || !currentUrl) return;
+
+    const originalText = askBtn.textContent;
+    askBtn.textContent = 'Asking...';
+    askBtn.disabled = true;
+
+    try {
+        log(`Natural language query: "${question}"`);
+        const queryResult = await ipcRenderer.invoke('ask-question', currentUrl, question);
+
+        if (queryResult.success) {
+            // Display the natural language result
+            displayNaturalLanguageResult(queryResult.result);
+        } else {
+            displayNaturalLanguageError(queryResult.error);
+        }
+
+    } catch (error) {
+        log('Natural language query error:', error.message);
+        displayNaturalLanguageError(error.message);
+    } finally {
+        askBtn.textContent = originalText;
+        askBtn.disabled = false;
+        questionInput.value = ''; // Clear the input
+    }
+}
+
+function displayNaturalLanguageResult(result) {
+    // Create or update natural language result container
+    let resultContainer = document.getElementById('natural-language-result');
+    if (!resultContainer) {
+        resultContainer = document.createElement('div');
+        resultContainer.id = 'natural-language-result';
+        resultContainer.className = 'natural-language-result';
+        generatedUI.insertBefore(resultContainer, generatedUI.firstChild);
+    }
+
+    resultContainer.innerHTML = `
+        <div class="natural-result">
+            <h3>🤖 AI Response</h3>
+            <div class="result-content">${result}</div>
+            <button onclick="this.parentNode.parentNode.style.display='none'" class="close-btn">×</button>
+        </div>
+    `;
+}
+
+function displayNaturalLanguageError(error) {
+    // Create or update natural language error container
+    let errorContainer = document.getElementById('natural-language-result');
+    if (!errorContainer) {
+        errorContainer = document.createElement('div');
+        errorContainer.id = 'natural-language-result';
+        errorContainer.className = 'natural-language-result';
+        generatedUI.insertBefore(errorContainer, generatedUI.firstChild);
+    }
+
+    errorContainer.innerHTML = `
+        <div class="natural-error">
+            <h3>❌ Error</h3>
+            <div class="error-content">${error}</div>
+            <button onclick="this.parentNode.parentNode.style.display='none'" class="close-btn">×</button>
+        </div>
+    `;
 }
 
 // Initialize
