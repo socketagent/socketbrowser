@@ -10,6 +10,8 @@ import os
 import requests
 from openai import OpenAI
 
+# socketagentlib not needed for direct API calls
+
 def get_openai_client():
     """Get OpenAI client with API key from environment."""
     api_key = os.getenv('OPENAI_API_KEY')
@@ -68,7 +70,7 @@ def generate_complete_website(descriptor_data):
         prompt = build_website_prompt(descriptor_data, service_type, endpoints, base_url)
 
         response = client.chat.completions.create(
-            model='gpt-5-2025-08-07',  # Latest model as specified
+            model='gpt-4o',  # GPT-4o has larger context and better performance
             messages=[
                 {
                     "role": "system",
@@ -85,7 +87,8 @@ def generate_complete_website(descriptor_data):
                 },
                 {"role": "user", "content": prompt}
             ],
-            max_completion_tokens=4000
+            max_completion_tokens=4000,  # Reasonable for GPT-4o
+            timeout=60  # 60 second timeout
         )
 
         website_html = response.choices[0].message.content
@@ -99,9 +102,12 @@ def generate_complete_website(descriptor_data):
         }
 
     except Exception as e:
+        import traceback
+        error_details = f"Error: {str(e)}\nTraceback: {traceback.format_exc()}"
+        print(f"Website generation error: {error_details}", file=sys.stderr)
         return {
             "success": False,
-            "error": str(e)
+            "error": error_details
         }
 
 
@@ -263,6 +269,8 @@ def main():
             params = json.loads(params_json)
             result = call_api(url, endpoint, params)
             print(json.dumps(result))
+
+        # Natural language command removed - using direct UI interactions
 
         else:
             print(json.dumps({"error": f"Unknown command: {command}"}))

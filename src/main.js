@@ -112,7 +112,4 @@ ipcMain.handle('call-api', async (event, url, endpoint, params) => {
   return await callPythonBridge('call-api', [url, endpoint, paramsJson]);
 });
 
-// Handle natural language queries
-ipcMain.handle('ask-question', async (event, url, question) => {
-  return await callPythonBridge('ask', [url, question]);
-});
+// Natural language queries removed - using direct UI interactions

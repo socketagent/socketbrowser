@@ -12,10 +12,6 @@
                    value="http://localhost:8001">
             <button id="navigate-btn">Go</button>
         </div>
-        <div class="natural-language-bar hidden" id="natural-language-bar">
-            <input type="text" id="question-input" placeholder="Ask something in natural language (e.g., 'search for cheese under $5')">
-            <button id="ask-btn">Ask</button>
-        </div>
     </div>
 
     <div class="content-area">
@@ -24,18 +20,8 @@
             <p>Discovering API and generating interface...</p>
         </div>
 
-        <div id="welcome" class="welcome-screen">
-            <h1>🚀 Socket Browser</h1>
-            <p>The next-generation browser that generates UI from Socket Agent APIs using LLMs.</p>
-            <p>Enter a Socket Agent API URL above to get started!</p>
-
-            <div class="quick-links">
-                <h3>Try these example APIs:</h3>
-                <button class="quick-link" data-url="http://localhost:8001">Grocery Store API</button>
-                <button class="quick-link" data-url="http://localhost:8002">Recipe API</button>
-                <button class="quick-link" data-url="http://localhost:8003">Banking API</button>
-                <button class="quick-link" data-url="http://localhost:8004">E-commerce API</button>
-            </div>
+        <div id="blank" class="blank-screen">
+            <!-- Blank page - content appears after navigation -->
         </div>
 
         <div id="generated-ui" class="hidden">

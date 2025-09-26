@@ -3,10 +3,8 @@
 // DOM elements
 const urlInput = document.getElementById('url-input');
 const navigateBtn = document.getElementById('navigate-btn');
-const naturalLanguageBar = document.getElementById('natural-language-bar');
-const questionInput = document.getElementById('question-input');
-const askBtn = document.getElementById('ask-btn');
-const welcomeScreen = document.getElementById('welcome');
+// Natural language interface removed
+const blankScreen = document.getElementById('blank');
 const loadingScreen = document.getElementById('loading');
 const generatedUI = document.getElementById('generated-ui');
 const errorScreen = document.getElementById('error');
@@ -25,20 +23,9 @@ urlInput.addEventListener('keypress', (e) => {
 });
 retryBtn.addEventListener('click', handleNavigation);
 
-// Natural language event listeners
-askBtn.addEventListener('click', handleNaturalLanguageQuery);
-questionInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleNaturalLanguageQuery();
-});
+// Natural language interface removed
 
-// Quick links
-document.querySelectorAll('.quick-link').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        const url = e.target.getAttribute('data-url');
-        urlInput.value = url;
-        handleNavigation();
-    });
-});
+// No quick links - removed hardcoded elements
 
 // Debug toggle (Ctrl+D)
 document.addEventListener('keydown', (e) => {
@@ -97,8 +84,8 @@ function showGeneratedWebsite(html) {
     generatedUI.innerHTML = html;
     generatedUI.classList.remove('hidden');
 
-    // Hide the natural language bar for now - complete websites shouldn't need it
-    naturalLanguageBar.classList.add('hidden');
+    // Generate UI displayed - bind events for API calls
+    bindGeneratedUIEvents();
 
     log('Complete website loaded and ready for interaction');
 }
@@ -109,14 +96,13 @@ function showError(message) {
     errorScreen.classList.remove('hidden');
 }
 
-function showWelcome() {
+function showBlank() {
     hideAllScreens();
-    naturalLanguageBar.classList.add('hidden');
-    welcomeScreen.classList.remove('hidden');
+    blankScreen.classList.remove('hidden');
 }
 
 function hideAllScreens() {
-    [welcomeScreen, loadingScreen, generatedUI, errorScreen].forEach(el => {
+    [blankScreen, loadingScreen, generatedUI, errorScreen].forEach(el => {
         el.classList.add('hidden');
     });
 }
@@ -157,7 +143,7 @@ async function handleAPICall(endpoint, params, buttonElement) {
 
     try {
         log(`Calling API: ${endpoint} with params:`, params);
-        const apiResult = await ipcRenderer.invoke('call-api', currentUrl, endpoint, params);
+        const apiResult = await window.electronAPI.callAPI(currentUrl, endpoint, params);
         log('API result:', apiResult);
 
         if (apiResult.success) {
@@ -249,73 +235,8 @@ function log(message, data = null) {
     console.log(message, data);
 }
 
-async function handleNaturalLanguageQuery() {
-    const question = questionInput.value.trim();
-    if (!question || !currentUrl) return;
-
-    const originalText = askBtn.textContent;
-    askBtn.textContent = 'Asking...';
-    askBtn.disabled = true;
-
-    try {
-        log(`Natural language query: "${question}"`);
-        const queryResult = await ipcRenderer.invoke('ask-question', currentUrl, question);
-
-        if (queryResult.success) {
-            // Display the natural language result
-            displayNaturalLanguageResult(queryResult.result);
-        } else {
-            displayNaturalLanguageError(queryResult.error);
-        }
-
-    } catch (error) {
-        log('Natural language query error:', error.message);
-        displayNaturalLanguageError(error.message);
-    } finally {
-        askBtn.textContent = originalText;
-        askBtn.disabled = false;
-        questionInput.value = ''; // Clear the input
-    }
-}
-
-function displayNaturalLanguageResult(result) {
-    // Create or update natural language result container
-    let resultContainer = document.getElementById('natural-language-result');
-    if (!resultContainer) {
-        resultContainer = document.createElement('div');
-        resultContainer.id = 'natural-language-result';
-        resultContainer.className = 'natural-language-result';
-        generatedUI.insertBefore(resultContainer, generatedUI.firstChild);
-    }
-
-    resultContainer.innerHTML = `
-        <div class="natural-result">
-            <h3>🤖 AI Response</h3>
-            <div class="result-content">${result}</div>
-            <button onclick="this.parentNode.parentNode.style.display='none'" class="close-btn">×</button>
-        </div>
-    `;
-}
-
-function displayNaturalLanguageError(error) {
-    // Create or update natural language error container
-    let errorContainer = document.getElementById('natural-language-result');
-    if (!errorContainer) {
-        errorContainer = document.createElement('div');
-        errorContainer.id = 'natural-language-result';
-        errorContainer.className = 'natural-language-result';
-        generatedUI.insertBefore(errorContainer, generatedUI.firstChild);
-    }
-
-    errorContainer.innerHTML = `
-        <div class="natural-error">
-            <h3>❌ Error</h3>
-            <div class="error-content">${error}</div>
-            <button onclick="this.parentNode.parentNode.style.display='none'" class="close-btn">×</button>
-        </div>
-    `;
-}
+// Natural language functions removed - using direct UI interactions only
 
 // Initialize
 log('Socket Browser initialized');
-showWelcome();
+showBlank();
