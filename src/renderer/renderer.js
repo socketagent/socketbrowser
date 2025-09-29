@@ -3,6 +3,9 @@
 // DOM elements
 const urlInput = document.getElementById('url-input');
 const navigateBtn = document.getElementById('navigate-btn');
+const backBtn = document.getElementById('back-btn');
+const forwardBtn = document.getElementById('forward-btn');
+const homeBtn = document.getElementById('home-btn');
 // Natural language interface removed
 const blankScreen = document.getElementById('blank');
 const loadingScreen = document.getElementById('loading');
@@ -15,6 +18,8 @@ const debugContent = document.getElementById('debug-content');
 
 let currentUrl = '';
 let currentDescriptor = null;
+let navigationHistory = []; // Stack for back/forward navigation
+let currentHistoryIndex = -1;
 
 // Event listeners
 navigateBtn.addEventListener('click', handleNavigation);
@@ -22,6 +27,9 @@ urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleNavigation();
 });
 retryBtn.addEventListener('click', handleNavigation);
+backBtn.addEventListener('click', goBack);
+forwardBtn.addEventListener('click', goForward);
+homeBtn.addEventListener('click', goHome);
 
 // Natural language interface removed
 
@@ -108,6 +116,16 @@ function hideAllScreens() {
 }
 
 function bindGeneratedUIEvents() {
+    // Intercept ALL links for navigation
+    const links = generatedUI.querySelectorAll('a[href]');
+    links.forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const href = link.getAttribute('href');
+            await handleLinkNavigation(href);
+        });
+    });
+
     // Find all API buttons and bind them
     const apiButtons = generatedUI.querySelectorAll('[data-api-call]');
     apiButtons.forEach(button => {
@@ -127,11 +145,12 @@ function bindGeneratedUIEvents() {
         });
     });
 
-    // Find all forms and prevent default submission
+    // Find all forms and handle submission
     const forms = generatedUI.querySelectorAll('form');
     forms.forEach(form => {
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            await handleFormSubmission(form);
         });
     });
 }
@@ -211,6 +230,211 @@ function displayAPIError(error, buttonElement) {
         <h4>❌ Error</h4>
         <p>${error}</p>
     `;
+}
+
+async function handleLinkNavigation(href) {
+    log(`Link clicked: ${href}`);
+
+    // Classify the link
+    if (href.startsWith('http://') || href.startsWith('https://')) {
+        // External Socket Agent service - discover new service
+        await navigateToNewService(href);
+    } else if (href.startsWith('#')) {
+        // Hash navigation - ignore, let generated JS handle it
+        log('Hash navigation - handled by page JavaScript');
+    } else {
+        // Relative path - make API call and regenerate page
+        await navigateToPath(href);
+    }
+}
+
+async function navigateToNewService(url) {
+    log(`Discovering new Socket Agent service: ${url}`);
+
+    // Save current state to history
+    addToHistory(currentUrl, currentDescriptor, generatedUI.innerHTML);
+
+    // Navigate to new service (same as initial navigation)
+    currentUrl = url;
+    urlInput.value = url;
+    await handleNavigation();
+}
+
+async function navigateToPath(path) {
+    log(`Navigating to path: ${path}`);
+    showLoading();
+
+    try {
+        // Make API call to this path
+        const apiResult = await window.electronAPI.callAPI(currentUrl, path, {});
+
+        if (apiResult.success) {
+            // Save current state to history
+            addToHistory(currentUrl, currentDescriptor, generatedUI.innerHTML);
+
+            // Regenerate page based on the response
+            await regeneratePageWithData(apiResult.data, path);
+        } else {
+            showError(`Failed to navigate to ${path}: ${apiResult.error}`);
+        }
+    } catch (error) {
+        log('Navigation error:', error.message);
+        showError(error.message);
+    }
+}
+
+async function regeneratePageWithData(data, context) {
+    log('Regenerating page with new data...', data);
+
+    try {
+        // Create enhanced descriptor with context
+        const enhancedDescriptor = {
+            ...currentDescriptor,
+            context: {
+                currentPath: context,
+                data: data
+            }
+        };
+
+        // Generate new page
+        const websiteResult = await window.electronAPI.generateWebsite(enhancedDescriptor);
+
+        if (!websiteResult.success) {
+            throw new Error(websiteResult.error || 'Page generation failed');
+        }
+
+        showGeneratedWebsite(websiteResult.html);
+    } catch (error) {
+        log('Error regenerating page:', error.message);
+        showError(error.message);
+    }
+}
+
+async function handleFormSubmission(form) {
+    log('Form submitted');
+
+    // Get form action (endpoint) and method
+    const action = form.getAttribute('action') || form.querySelector('[data-api-call]')?.getAttribute('data-api-call');
+    const method = form.getAttribute('method') || 'POST';
+
+    if (!action) {
+        log('No action found for form');
+        return;
+    }
+
+    // Collect form data
+    const formData = new FormData(form);
+    const params = {};
+    for (const [key, value] of formData.entries()) {
+        params[key] = value;
+    }
+
+    showLoading();
+
+    try {
+        // Make API call
+        const apiResult = await window.electronAPI.callAPI(currentUrl, action, params);
+
+        if (apiResult.success) {
+            // Save current state to history
+            addToHistory(currentUrl, currentDescriptor, generatedUI.innerHTML);
+
+            // Regenerate page with result
+            await regeneratePageWithData(apiResult.data, action);
+        } else {
+            showError(`Form submission failed: ${apiResult.error}`);
+        }
+    } catch (error) {
+        log('Form submission error:', error.message);
+        showError(error.message);
+    }
+}
+
+function addToHistory(url, descriptor, html) {
+    // Trim forward history if we're not at the end
+    if (currentHistoryIndex < navigationHistory.length - 1) {
+        navigationHistory = navigationHistory.slice(0, currentHistoryIndex + 1);
+    }
+
+    // Add current state to history
+    navigationHistory.push({
+        url: url,
+        descriptor: descriptor,
+        html: html,
+        timestamp: Date.now()
+    });
+    currentHistoryIndex = navigationHistory.length - 1;
+    log(`Added to history. Stack size: ${navigationHistory.length}`);
+    updateNavigationButtons();
+}
+
+function goBack() {
+    if (currentHistoryIndex > 0) {
+        currentHistoryIndex--;
+        const historyEntry = navigationHistory[currentHistoryIndex];
+
+        log(`Going back to: ${historyEntry.url}`);
+
+        // Restore state
+        currentUrl = historyEntry.url;
+        currentDescriptor = historyEntry.descriptor;
+        urlInput.value = historyEntry.url;
+
+        // Restore page without adding to history
+        generatedUI.innerHTML = historyEntry.html;
+        bindGeneratedUIEvents();
+        showGeneratedWebsite(historyEntry.html);
+
+        updateNavigationButtons();
+    }
+}
+
+function goForward() {
+    if (currentHistoryIndex < navigationHistory.length - 1) {
+        currentHistoryIndex++;
+        const historyEntry = navigationHistory[currentHistoryIndex];
+
+        log(`Going forward to: ${historyEntry.url}`);
+
+        // Restore state
+        currentUrl = historyEntry.url;
+        currentDescriptor = historyEntry.descriptor;
+        urlInput.value = historyEntry.url;
+
+        // Restore page without adding to history
+        generatedUI.innerHTML = historyEntry.html;
+        bindGeneratedUIEvents();
+        showGeneratedWebsite(historyEntry.html);
+
+        updateNavigationButtons();
+    }
+}
+
+function goHome() {
+    if (navigationHistory.length > 0) {
+        // Go to first item in history
+        currentHistoryIndex = 0;
+        const historyEntry = navigationHistory[0];
+
+        log(`Going home to: ${historyEntry.url}`);
+
+        // Restore state
+        currentUrl = historyEntry.url;
+        currentDescriptor = historyEntry.descriptor;
+        urlInput.value = historyEntry.url;
+
+        // Restore page
+        generatedUI.innerHTML = historyEntry.html;
+        bindGeneratedUIEvents();
+        showGeneratedWebsite(historyEntry.html);
+
+        updateNavigationButtons();
+    }
+}
+
+function updateNavigationButtons() {
+    backBtn.disabled = currentHistoryIndex <= 0;
+    forwardBtn.disabled = currentHistoryIndex >= navigationHistory.length - 1;
 }
 
 function log(message, data = null) {

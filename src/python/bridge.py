@@ -167,6 +167,22 @@ def build_website_prompt(descriptor, service_type, endpoints, base_url):
         for ep in endpoints
     ])
 
+    # Check if there's context from a previous page
+    context_info = ""
+    if descriptor.get("context"):
+        context_info = f"""
+
+IMPORTANT CONTEXT - This page is being regenerated after user interaction:
+- Previous action: {descriptor['context'].get('currentPath', 'N/A')}
+- API Response data: {descriptor['context'].get('data', {})}
+
+Generate a NEW page that shows the RESULT of this action. For example:
+- If they searched for products, show the search results
+- If they added to cart, show the updated cart
+- If they submitted a form, show a confirmation page
+- Always include navigation back to other sections
+"""
+
     return f"""
 Create a complete, beautiful website for: {descriptor.get("name", "Unknown Service")}
 
@@ -177,25 +193,51 @@ API Base URL: {base_url}
 
 Available API Endpoints:
 {endpoint_list}
+{context_info}
 
-Requirements:
-1. Create a COMPLETE website that looks professional and modern
-2. Users should be able to naturally interact with it (no "Call API" buttons)
-3. Embed JavaScript functions that call the actual API endpoints
-4. Include beautiful CSS styling (modern design, responsive)
-5. Handle loading states and errors gracefully
-6. Make it feel like a real {service_type.replace('_', ' ')} website
+CRITICAL REQUIREMENTS FOR NAVIGATION:
 
-For API calls, use this pattern in your JavaScript:
+1. This is a REQUEST-RESPONSE browser (like traditional HTML):
+   - Every link click will make an API call and regenerate the page
+   - Use REAL navigation links: <a href="/products">Products</a>
+   - Links should point to API endpoints (e.g., /products, /cart, /recipes/search)
+   - When clicked, the browser will call that endpoint and regenerate the page
+
+2. Generate a website with MULTIPLE navigable pages:
+   - Homepage with navigation menu
+   - Links to different sections (products, about, cart, etc.)
+   - Each link href should be an API endpoint path
+   - Example: <a href="/products">View Products</a> will call GET /products and regenerate
+
+3. For forms that submit data:
+   - Use proper form elements: <form action="/cart" method="POST">
+   - Include all necessary input fields
+   - Add a submit button
+   - Browser will handle form submission → API call → page regeneration
+
+4. Navigation structure example:
+   ```html
+   <nav>
+     <a href="/products">Products</a>
+     <a href="/cart">Cart</a>
+     <a href="/orders">My Orders</a>
+   </nav>
+   ```
+
+5. STYLING: Include beautiful embedded CSS (modern design, responsive, professional)
+
+6. For API calls within the page (without navigation), use this JavaScript pattern:
 ```javascript
 async function apiCall(endpoint, params = {{}}) {{
-    // This will be handled by the browser
     const result = await window.electronAPI.callAPI('{base_url}', endpoint, params);
     return result;
 }}
 ```
 
-Generate the complete HTML page with embedded CSS and JavaScript:
+7. Handle loading states and errors gracefully
+
+Generate the complete HTML page with embedded CSS and JavaScript.
+This page should feel like a real {service_type.replace('_', ' ')} website where clicking links navigates to new pages.
 """
 
 
