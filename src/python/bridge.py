@@ -9,13 +9,21 @@ import json
 import os
 import requests
 from openai import OpenAI
+from dotenv import load_dotenv
 
 # socketagentlib not needed for direct API calls
+
+# Load .env file - CRITICAL for configuration!
+load_dotenv()
 
 # Configuration for LLM provider
 LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')  # 'openai' or 'ollama'
 OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'qwen2.5-coder:7b-instruct')
+
+# Debug: Print what we loaded
+print(f"[CONFIG] LLM_PROVIDER={LLM_PROVIDER}", file=sys.stderr)
+print(f"[CONFIG] OLLAMA_MODEL={OLLAMA_MODEL}", file=sys.stderr)
 
 def get_openai_client():
     """Get OpenAI client with API key from environment."""
@@ -64,7 +72,18 @@ def discover_api(url):
 def generate_with_ollama(system_prompt, user_prompt):
     """Generate text using Ollama."""
     try:
-        combined_prompt = f"{system_prompt}\n\n{user_prompt}\n\nGenerate the HTML now:"
+        # Simplify prompt for faster generation
+        combined_prompt = f"""You are a web developer. Generate a simple HTML page for: {user_prompt}
+
+Requirements:
+- Single HTML file with embedded CSS
+- Navigation links as <a href="/endpoint">Link</a>
+- Keep it simple and functional
+- No explanations, just HTML
+
+HTML:"""
+
+        print(f"[OLLAMA] Starting generation with {OLLAMA_MODEL}...", file=sys.stderr)
 
         response = requests.post(
             f"{OLLAMA_BASE_URL}/api/generate",
@@ -74,15 +93,19 @@ def generate_with_ollama(system_prompt, user_prompt):
                 "stream": False,
                 "options": {
                     "temperature": 0.3,
-                    "num_predict": 4000  # Limit output
+                    "num_predict": 2000,  # Reduced for faster generation
+                    "top_p": 0.9,
+                    "top_k": 40
                 }
             },
-            timeout=120
+            timeout=300  # Increased to 5 minutes
         )
         response.raise_for_status()
 
         result = response.json()
-        return result.get("response", "")
+        html = result.get("response", "")
+        print(f"[OLLAMA] Generation complete! ({len(html)} chars)", file=sys.stderr)
+        return html
 
     except Exception as e:
         raise Exception(f"Ollama generation failed: {str(e)}")
