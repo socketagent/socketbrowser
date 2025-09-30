@@ -69,21 +69,32 @@ def discover_api(url):
         }
 
 
-def generate_with_ollama(system_prompt, user_prompt):
-    """Generate text using Ollama."""
+def generate_with_ollama(descriptor_data, service_type, endpoints, base_url):
+    """Generate text using Ollama with simplified prompts."""
     try:
-        # Simplify prompt for faster generation
-        combined_prompt = f"""You are a web developer. Generate a simple HTML page for: {user_prompt}
+        # Create a SIMPLIFIED prompt for Ollama (smaller models need less context)
+        endpoint_list = "\n".join([
+            f"- {ep.get('method', 'GET')} {ep.get('path', '')}"
+            for ep in endpoints[:5]  # Limit to first 5 endpoints
+        ])
+
+        service_name = descriptor_data.get("name", "Service")
+
+        combined_prompt = f"""Generate a simple HTML page for: {service_name}
+
+Endpoints:
+{endpoint_list}
 
 Requirements:
-- Single HTML file with embedded CSS
-- Navigation links as <a href="/endpoint">Link</a>
-- Keep it simple and functional
-- No explanations, just HTML
+1. Single HTML file with embedded CSS
+2. Use navigation links: <a href="/products">Products</a>
+3. Include a search form if applicable
+4. Modern, clean design
+5. NO explanations, ONLY HTML
 
-HTML:"""
+Generate the complete HTML now:"""
 
-        print(f"[OLLAMA] Starting generation with {OLLAMA_MODEL}...", file=sys.stderr)
+        print(f"[OLLAMA] Generating with {OLLAMA_MODEL} (simplified prompt)...", file=sys.stderr)
 
         response = requests.post(
             f"{OLLAMA_BASE_URL}/api/generate",
@@ -93,18 +104,18 @@ HTML:"""
                 "stream": False,
                 "options": {
                     "temperature": 0.3,
-                    "num_predict": 2000,  # Reduced for faster generation
+                    "num_predict": 2000,  # Keep small for speed
                     "top_p": 0.9,
                     "top_k": 40
                 }
             },
-            timeout=300  # Increased to 5 minutes
+            timeout=300  # 5 minutes
         )
         response.raise_for_status()
 
         result = response.json()
         html = result.get("response", "")
-        print(f"[OLLAMA] Generation complete! ({len(html)} chars)", file=sys.stderr)
+        print(f"[OLLAMA] Complete! Generated {len(html)} characters", file=sys.stderr)
         return html
 
     except Exception as e:
@@ -119,10 +130,19 @@ def generate_complete_website(descriptor_data):
         endpoints = descriptor_data.get("endpoints", [])
         base_url = descriptor_data.get("baseUrl", "")
 
-        # Create a comprehensive prompt for website generation
-        prompt = build_website_prompt(descriptor_data, service_type, endpoints, base_url)
+        # Choose provider and adjust prompt complexity accordingly
+        if LLM_PROVIDER == 'ollama':
+            # OLLAMA: Simplified prompt for faster, lighter generation
+            print(f"[PROVIDER] Using Ollama ({OLLAMA_MODEL}) - simplified prompts", file=sys.stderr)
+            website_html = generate_with_ollama(descriptor_data, service_type, endpoints, base_url)
+        else:
+            # OPENAI: Full complex prompt with all context
+            print("[PROVIDER] Using OpenAI (gpt-4o) - full context prompts", file=sys.stderr)
 
-        system_prompt = """You are a web developer that creates complete, functional websites from API specifications.
+            # Create comprehensive prompt with all details
+            prompt = build_website_prompt(descriptor_data, service_type, endpoints, base_url)
+
+            system_prompt = """You are a web developer that creates complete, functional websites from API specifications.
 
 Generate a COMPLETE website that users can naturally interact with. The website should:
 1. Look and feel like a real business website (not an API testing tool)
@@ -133,12 +153,6 @@ Generate a COMPLETE website that users can naturally interact with. The website 
 
 Generate only the HTML content with embedded CSS and JavaScript. No markdown code blocks."""
 
-        # Choose provider based on configuration
-        if LLM_PROVIDER == 'ollama':
-            print(f"Using Ollama ({OLLAMA_MODEL}) for generation...", file=sys.stderr)
-            website_html = generate_with_ollama(system_prompt, prompt)
-        else:
-            print("Using OpenAI (gpt-4o) for generation...", file=sys.stderr)
             client = get_openai_client()
             response = client.chat.completions.create(
                 model='gpt-4o',
@@ -146,7 +160,7 @@ Generate only the HTML content with embedded CSS and JavaScript. No markdown cod
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=4000,
+                max_completion_tokens=4000,  # GPT-4o can handle more
                 timeout=60
             )
             website_html = response.choices[0].message.content
