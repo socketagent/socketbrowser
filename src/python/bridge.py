@@ -12,6 +12,11 @@ from openai import OpenAI
 
 # socketagentlib not needed for direct API calls
 
+# Configuration for LLM provider
+LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')  # 'openai' or 'ollama'
+OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'qwen2.5-coder:7b-instruct')
+
 def get_openai_client():
     """Get OpenAI client with API key from environment."""
     api_key = os.getenv('OPENAI_API_KEY')
@@ -56,11 +61,36 @@ def discover_api(url):
         }
 
 
+def generate_with_ollama(system_prompt, user_prompt):
+    """Generate text using Ollama."""
+    try:
+        combined_prompt = f"{system_prompt}\n\n{user_prompt}\n\nGenerate the HTML now:"
+
+        response = requests.post(
+            f"{OLLAMA_BASE_URL}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": combined_prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "num_predict": 4000  # Limit output
+                }
+            },
+            timeout=120
+        )
+        response.raise_for_status()
+
+        result = response.json()
+        return result.get("response", "")
+
+    except Exception as e:
+        raise Exception(f"Ollama generation failed: {str(e)}")
+
+
 def generate_complete_website(descriptor_data):
     """Generate a complete website (HTML/CSS/JS) from Socket Agent descriptor."""
     try:
-        client = get_openai_client()
-
         # Determine the type of service
         service_type = infer_service_type(descriptor_data)
         endpoints = descriptor_data.get("endpoints", [])
@@ -69,29 +99,34 @@ def generate_complete_website(descriptor_data):
         # Create a comprehensive prompt for website generation
         prompt = build_website_prompt(descriptor_data, service_type, endpoints, base_url)
 
-        response = client.chat.completions.create(
-            model='gpt-4o',  # GPT-4o has larger context and better performance
-            messages=[
-                {
-                    "role": "system",
-                    "content": """You are a web developer that creates complete, functional websites from API specifications.
+        system_prompt = """You are a web developer that creates complete, functional websites from API specifications.
 
-                    Generate a COMPLETE website that users can naturally interact with. The website should:
-                    1. Look and feel like a real business website (not an API testing tool)
-                    2. Have embedded JavaScript that makes API calls transparently
-                    3. Include beautiful CSS styling
-                    4. Handle user interactions naturally (shopping, browsing, etc.)
-                    5. Make API calls behind the scenes when users interact with the site
+Generate a COMPLETE website that users can naturally interact with. The website should:
+1. Look and feel like a real business website (not an API testing tool)
+2. Have embedded JavaScript that makes API calls transparently
+3. Include beautiful CSS styling
+4. Handle user interactions naturally (shopping, browsing, etc.)
+5. Make API calls behind the scenes when users interact with the site
 
-                    Generate only the HTML content with embedded CSS and JavaScript. No markdown code blocks."""
-                },
-                {"role": "user", "content": prompt}
-            ],
-            max_completion_tokens=4000,  # Reasonable for GPT-4o
-            timeout=60  # 60 second timeout
-        )
+Generate only the HTML content with embedded CSS and JavaScript. No markdown code blocks."""
 
-        website_html = response.choices[0].message.content
+        # Choose provider based on configuration
+        if LLM_PROVIDER == 'ollama':
+            print(f"Using Ollama ({OLLAMA_MODEL}) for generation...", file=sys.stderr)
+            website_html = generate_with_ollama(system_prompt, prompt)
+        else:
+            print("Using OpenAI (gpt-4o) for generation...", file=sys.stderr)
+            client = get_openai_client()
+            response = client.chat.completions.create(
+                model='gpt-4o',
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                max_completion_tokens=4000,
+                timeout=60
+            )
+            website_html = response.choices[0].message.content
 
         # Clean up any markdown if present
         website_html = clean_html(website_html)
