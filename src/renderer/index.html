@@ -19,7 +19,7 @@
             </div>
         </div>
         <div class="address-bar">
-            <input type="text" id="url-input" placeholder="Enter Socket Agent API URL (e.g., http://localhost:8001)"
+            <input type="text" id="url-input" placeholder="Enter URL (Socket Agent API or regular website)"
                    value="http://localhost:8001">
             <button id="navigate-btn">Go</button>
         </div>
@@ -39,6 +39,10 @@
             <!-- Generated UI will be inserted here by the LLM -->
         </div>
 
+        <div id="html-view" class="hidden">
+            <!-- Traditional HTML websites rendered via BrowserView -->
+        </div>
+
         <div id="error" class="error-screen hidden">
             <h2>❌ Error</h2>
             <p id="error-message"></p>
@@ -51,6 +55,7 @@
         <div id="debug-content"></div>
     </div>
 
+    <script src="hybrid-renderer.js"></script>
     <script src="renderer.js"></script>
 </body>
 </html>

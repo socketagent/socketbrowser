@@ -24,6 +24,7 @@ let currentDescriptor = null;
 let navigationHistory = []; // Stack for back/forward navigation
 let currentHistoryIndex = -1;
 let currentLLMProvider = 'openai'; // Track current provider
+let hybridRenderer = null; // Hybrid renderer instance
 
 // Event listeners
 navigateBtn.addEventListener('click', handleNavigation);
@@ -59,33 +60,20 @@ async function handleNavigation() {
     showLoading();
 
     try {
-        // Step 1: Discover Socket Agent API
-        log('Discovering Socket Agent API...');
-        const discoveryResult = await window.electronAPI.discoverSocketAgent(url);
+        // Use hybrid renderer to handle both Socket Agent and HTML
+        await hybridRenderer.render(url);
 
-        if (!discoveryResult.success) {
-            throw new Error(discoveryResult.error);
+        // If it's a Socket Agent site, update our state
+        if (hybridRenderer.isSocketAgentMode()) {
+            log('Socket Agent site loaded');
+            // The hybrid renderer already handled display
+        } else {
+            log('Traditional HTML site loaded');
+            // BrowserView is handling the display
         }
-
-        currentDescriptor = discoveryResult.descriptor;
-        log('API discovered:', currentDescriptor);
-
-        // Step 2: Generate complete website using LLM
-        log('Generating complete website with LLM...');
-        const websiteResult = await window.electronAPI.generateWebsite(currentDescriptor, currentLLMProvider);
-
-        if (!websiteResult.success) {
-            throw new Error(websiteResult.error || 'Website generation failed');
-        }
-
-        const generatedWebsite = websiteResult.html;
-        log('Website generated');
-
-        // Step 3: Display generated website
-        showGeneratedWebsite(generatedWebsite);
 
     } catch (error) {
-        log('Error:', error.message);
+        log('Navigation error:', error.message);
         showError(error.message);
     }
 }
@@ -118,7 +106,8 @@ function showBlank() {
 }
 
 function hideAllScreens() {
-    [blankScreen, loadingScreen, generatedUI, errorScreen].forEach(el => {
+    const htmlView = document.getElementById('html-view');
+    [blankScreen, loadingScreen, generatedUI, htmlView, errorScreen].forEach(el => {
         el.classList.add('hidden');
     });
 }
@@ -449,6 +438,9 @@ function toggleLLMProvider() {
     // Toggle between providers
     currentLLMProvider = currentLLMProvider === 'openai' ? 'ollama' : 'openai';
 
+    // Update global reference for hybrid renderer
+    window.currentLLMProvider = currentLLMProvider;
+
     log(`Switched to ${currentLLMProvider.toUpperCase()}`);
     updateLLMDisplay();
 
@@ -501,6 +493,20 @@ function log(message, data = null) {
 
 // Natural language functions removed - using direct UI interactions only
 
+// Initialize hybrid renderer
+hybridRenderer = new HybridRenderer();
+
+// Expose for hybrid-renderer.js
+window.currentLLMProvider = currentLLMProvider;
+window.bindGeneratedUIEvents = bindGeneratedUIEvents;
+
+// Listen for navigation events from BrowserView
+window.electronAPI.onHybridNavigate((url) => {
+    log(`BrowserView navigation intercepted: ${url}`);
+    urlInput.value = url;
+    handleNavigation();
+});
+
 // Initialize
-log('Socket Browser initialized');
+log('Socket Browser initialized (Hybrid Mode)');
 showBlank();

@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 
 let mainWindow;
+let htmlBrowserView = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -114,3 +115,91 @@ ipcMain.handle('call-api', async (event, url, endpoint, params) => {
 });
 
 // Natural language queries removed - using direct UI interactions
+
+// BrowserView management for HTML rendering
+function getOrCreateBrowserView() {
+  if (!htmlBrowserView) {
+    htmlBrowserView = new BrowserView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
+      }
+    });
+    mainWindow.addBrowserView(htmlBrowserView);
+
+    // Intercept navigation in BrowserView to check for Socket Agent APIs
+    htmlBrowserView.webContents.on('will-navigate', (event, url) => {
+      event.preventDefault();
+      mainWindow.webContents.send('hybrid-navigate', url);
+    });
+
+    // Handle new window requests
+    htmlBrowserView.webContents.setWindowOpenHandler(({ url }) => {
+      mainWindow.webContents.send('hybrid-navigate', url);
+      return { action: 'deny' };
+    });
+  }
+  return htmlBrowserView;
+}
+
+// Load URL in BrowserView
+ipcMain.handle('load-html-in-browser-view', async (event, url) => {
+  try {
+    const view = getOrCreateBrowserView();
+
+    // Position BrowserView below the chrome (70px for navigation bar)
+    const bounds = mainWindow.getBounds();
+    view.setBounds({
+      x: 0,
+      y: 70,
+      width: bounds.width,
+      height: bounds.height - 70
+    });
+
+    await view.webContents.loadURL(url);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to load URL in BrowserView:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Show BrowserView
+ipcMain.handle('show-browser-view', async () => {
+  if (htmlBrowserView) {
+    const bounds = mainWindow.getBounds();
+    htmlBrowserView.setBounds({
+      x: 0,
+      y: 70,
+      width: bounds.width,
+      height: bounds.height - 70
+    });
+  }
+});
+
+// Hide BrowserView
+ipcMain.handle('hide-browser-view', async () => {
+  if (htmlBrowserView) {
+    htmlBrowserView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+  }
+});
+
+// Handle window resize to update BrowserView bounds
+app.on('browser-window-created', () => {
+  mainWindow.on('resize', () => {
+    if (htmlBrowserView) {
+      const bounds = mainWindow.getBounds();
+      // Check if BrowserView is currently visible (width > 0)
+      const currentBounds = htmlBrowserView.getBounds();
+      if (currentBounds.width > 0) {
+        htmlBrowserView.setBounds({
+          x: 0,
+          y: 70,
+          width: bounds.width,
+          height: bounds.height - 70
+        });
+      }
+    }
+  });
+});
