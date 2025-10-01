@@ -369,6 +369,15 @@ def main():
 
             descriptor_json = sys.argv[2]
             descriptor = json.loads(descriptor_json)
+
+            # Override LLM_PROVIDER if passed as argument (runtime switching!)
+            global LLM_PROVIDER
+            if len(sys.argv) >= 4:
+                runtime_provider = sys.argv[3]
+                if runtime_provider in ['openai', 'ollama']:
+                    LLM_PROVIDER = runtime_provider
+                    print(f"[RUNTIME] Provider overridden to: {LLM_PROVIDER}", file=sys.stderr)
+
             result = generate_complete_website(descriptor)
             print(json.dumps(result))
 

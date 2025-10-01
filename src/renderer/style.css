@@ -23,6 +23,49 @@ body {
     display: flex;
     gap: 5px;
     margin-bottom: 10px;
+    align-items: center;
+}
+
+.llm-toggle {
+    margin-left: auto;
+}
+
+.llm-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.llm-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.llm-btn.ollama {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
+}
+
+.llm-btn.ollama:hover {
+    box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+}
+
+#llm-icon {
+    font-size: 18px;
+}
+
+#llm-name {
+    font-weight: 600;
 }
 
 .nav-btn {

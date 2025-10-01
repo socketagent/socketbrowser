@@ -6,6 +6,9 @@ const navigateBtn = document.getElementById('navigate-btn');
 const backBtn = document.getElementById('back-btn');
 const forwardBtn = document.getElementById('forward-btn');
 const homeBtn = document.getElementById('home-btn');
+const llmToggleBtn = document.getElementById('llm-toggle-btn');
+const llmIcon = document.getElementById('llm-icon');
+const llmName = document.getElementById('llm-name');
 // Natural language interface removed
 const blankScreen = document.getElementById('blank');
 const loadingScreen = document.getElementById('loading');
@@ -20,6 +23,7 @@ let currentUrl = '';
 let currentDescriptor = null;
 let navigationHistory = []; // Stack for back/forward navigation
 let currentHistoryIndex = -1;
+let currentLLMProvider = 'openai'; // Track current provider
 
 // Event listeners
 navigateBtn.addEventListener('click', handleNavigation);
@@ -30,6 +34,10 @@ retryBtn.addEventListener('click', handleNavigation);
 backBtn.addEventListener('click', goBack);
 forwardBtn.addEventListener('click', goForward);
 homeBtn.addEventListener('click', goHome);
+llmToggleBtn.addEventListener('click', toggleLLMProvider);
+
+// Initialize LLM provider display
+updateLLMDisplay();
 
 // Natural language interface removed
 
@@ -64,7 +72,7 @@ async function handleNavigation() {
 
         // Step 2: Generate complete website using LLM
         log('Generating complete website with LLM...');
-        const websiteResult = await window.electronAPI.generateWebsite(currentDescriptor);
+        const websiteResult = await window.electronAPI.generateWebsite(currentDescriptor, currentLLMProvider);
 
         if (!websiteResult.success) {
             throw new Error(websiteResult.error || 'Website generation failed');
@@ -296,8 +304,8 @@ async function regeneratePageWithData(data, context) {
             }
         };
 
-        // Generate new page
-        const websiteResult = await window.electronAPI.generateWebsite(enhancedDescriptor);
+        // Generate new page with current LLM provider
+        const websiteResult = await window.electronAPI.generateWebsite(enhancedDescriptor, currentLLMProvider);
 
         if (!websiteResult.success) {
             throw new Error(websiteResult.error || 'Page generation failed');
@@ -435,6 +443,38 @@ function goHome() {
 function updateNavigationButtons() {
     backBtn.disabled = currentHistoryIndex <= 0;
     forwardBtn.disabled = currentHistoryIndex >= navigationHistory.length - 1;
+}
+
+function toggleLLMProvider() {
+    // Toggle between providers
+    currentLLMProvider = currentLLMProvider === 'openai' ? 'ollama' : 'openai';
+
+    log(`Switched to ${currentLLMProvider.toUpperCase()}`);
+    updateLLMDisplay();
+
+    // Show notification
+    showNotification(`Now using ${currentLLMProvider === 'openai' ? 'OpenAI (GPT-4o)' : 'Ollama (Local)'}`);
+}
+
+function updateLLMDisplay() {
+    if (currentLLMProvider === 'openai') {
+        llmIcon.textContent = '🤖';
+        llmName.textContent = 'OpenAI';
+        llmToggleBtn.classList.remove('ollama');
+        llmToggleBtn.title = 'Using OpenAI GPT-4o - Click to switch to Ollama';
+    } else {
+        llmIcon.textContent = '🏠';
+        llmName.textContent = 'Ollama';
+        llmToggleBtn.classList.add('ollama');
+        llmToggleBtn.title = 'Using Ollama (Local) - Click to switch to OpenAI';
+    }
+}
+
+function showNotification(message) {
+    // Simple notification in debug panel
+    log(`[NOTIFICATION] ${message}`);
+
+    // TODO: Add toast notification UI later
 }
 
 function log(message, data = null) {

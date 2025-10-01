@@ -101,9 +101,10 @@ ipcMain.handle('discover-socket-agent', async (event, url) => {
 });
 
 // Handle complete website generation
-ipcMain.handle('generate-website', async (event, descriptor) => {
+ipcMain.handle('generate-website', async (event, descriptor, llmProvider) => {
   const descriptorJson = JSON.stringify(descriptor);
-  return await callPythonBridge('generate-website', [descriptorJson]);
+  // Pass LLM provider as additional argument
+  return await callPythonBridge('generate-website', [descriptorJson, llmProvider || 'openai']);
 });
 
 // Handle API calls
