@@ -6,11 +6,14 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="browser-chrome">
+    <div class="browser-chrome" id="browser-chrome">
         <div class="nav-controls">
             <button id="back-btn" class="nav-btn" disabled>←</button>
             <button id="forward-btn" class="nav-btn" disabled>→</button>
             <button id="home-btn" class="nav-btn">🏠</button>
+            <div class="mode-indicator" id="mode-indicator">
+                <span class="mode-badge" id="mode-badge" title="Current rendering mode">HTML</span>
+            </div>
             <div class="llm-toggle">
                 <button id="llm-toggle-btn" class="llm-btn" title="Switch LLM Provider">
                     <span id="llm-icon">🤖</span>
@@ -19,8 +22,8 @@
             </div>
         </div>
         <div class="address-bar">
-            <input type="text" id="url-input" placeholder="Enter URL (Socket Agent API or regular website)"
-                   value="http://localhost:8001">
+            <input type="text" id="url-input" placeholder="Enter URL or Socket Agent API"
+                   value="">
             <button id="navigate-btn">Go</button>
         </div>
     </div>

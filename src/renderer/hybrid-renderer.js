@@ -1,34 +1,46 @@
 /**
  * Hybrid Renderer - Manages both Socket Agent and Traditional HTML rendering
+ *
+ * Design Philosophy:
+ * - Default to HTML mode (like a normal browser)
+ * - Try Socket Agent discovery, fallback gracefully
+ * - Visual mode indicator (color-coded chrome)
  */
 
 class HybridRenderer {
     constructor() {
-        this.mode = null; // 'socket-agent' or 'html'
+        this.mode = 'html'; // Default to HTML mode
         this.currentUrl = null;
         this.socketAgentDiv = document.getElementById('generated-ui');
         this.htmlView = document.getElementById('html-view');
+        this.chrome = document.getElementById('browser-chrome');
+        this.modeBadge = document.getElementById('mode-badge');
+
+        // Initialize in HTML mode
+        this.updateModeIndicator('html');
     }
 
     /**
      * Detect if a URL is a Socket Agent API or traditional HTML
+     * Returns: { mode: 'socket-agent' | 'html', descriptor?: object }
      */
     async detectMode(url) {
         try {
             // Try Socket Agent discovery first
             const discoveryResult = await window.electronAPI.discoverSocketAgent(url);
 
-            if (discoveryResult.success) {
+            if (discoveryResult.success && discoveryResult.descriptor) {
+                console.log('✓ Socket Agent API detected:', discoveryResult.descriptor.name);
                 return {
                     mode: 'socket-agent',
                     descriptor: discoveryResult.descriptor
                 };
             }
         } catch (error) {
-            // Discovery failed, assume traditional HTML
-            console.log('Socket Agent discovery failed, falling back to HTML mode');
+            console.log('Socket Agent discovery failed, assuming HTML mode:', error.message);
         }
 
+        // Default to HTML mode
         return {
             mode: 'html',
             descriptor: null
@@ -45,8 +57,10 @@ class HybridRenderer {
         const detection = await this.detectMode(url);
 
         if (detection.mode === 'socket-agent') {
+            console.log('→ Rendering in Socket Agent mode');
             await this.renderSocketAgent(url, detection.descriptor);
         } else {
+            console.log('→ Rendering in HTML mode');
             await this.renderHTML(url);
         }
     }
@@ -68,7 +82,9 @@ class HybridRenderer {
         this.socketAgentDiv.innerHTML = websiteResult.html;
 
         // Bind events for API calls
-        window.bindGeneratedUIEvents();
+        if (window.bindGeneratedUIEvents) {
+            window.bindGeneratedUIEvents();
+        }
     }
 
     /**
@@ -78,7 +94,11 @@ class HybridRenderer {
         this.switchToHTML();
 
         // Request main process to load URL in BrowserView
-        await window.electronAPI.loadHTMLInBrowserView(url);
+        const result = await window.electronAPI.loadHTMLInBrowserView(url);
+
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to load HTML content');
+        }
     }
 
     /**
@@ -91,6 +111,9 @@ class HybridRenderer {
 
         // Hide BrowserView in main process
         window.electronAPI.hideBrowserView();
+
+        // Update visual indicator
+        this.updateModeIndicator('socket-agent');
     }
 
     /**
@@ -103,6 +126,28 @@ class HybridRenderer {
 
         // Show BrowserView in main process
         window.electronAPI.showBrowserView();
+
+        // Update visual indicator
+        this.updateModeIndicator('html');
+    }
+
+    /**
+     * Update visual mode indicator with color coding
+     */
+    updateModeIndicator(mode) {
+        if (mode === 'socket-agent') {
+            // Purple/pink for AI-generated mode
+            this.chrome.classList.add('socket-agent-mode');
+            this.chrome.classList.remove('html-mode');
+            this.modeBadge.textContent = '⚡ Socket Agent';
+            this.modeBadge.title = 'AI-generated interface from Socket Agent API';
+        } else {
+            // Blue/neutral for HTML mode
+            this.chrome.classList.remove('socket-agent-mode');
+            this.chrome.classList.add('html-mode');
+            this.modeBadge.textContent = '🌐 HTML';
+            this.modeBadge.title = 'Traditional HTML website';
+        }
     }
 
     /**

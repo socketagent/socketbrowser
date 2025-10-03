@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadHTMLInBrowserView: (url) => ipcRenderer.invoke('load-html-in-browser-view', url),
   showBrowserView: () => ipcRenderer.invoke('show-browser-view'),
   hideBrowserView: () => ipcRenderer.invoke('hide-browser-view'),
+  getMode: () => ipcRenderer.invoke('get-mode'),
 
   // Listen for navigation events from BrowserView
   onHybridNavigate: (callback) => ipcRenderer.on('hybrid-navigate', (event, url) => callback(url))

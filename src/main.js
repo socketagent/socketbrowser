@@ -19,6 +19,9 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
+  // Setup resize handler
+  setupResizeHandler(mainWindow);
+
   // Open DevTools in development
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
@@ -26,6 +29,9 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    if (htmlBrowserView) {
+      htmlBrowserView = null;
+    }
   });
 }
 
@@ -165,7 +171,7 @@ ipcMain.handle('load-html-in-browser-view', async (event, url) => {
   }
 });
 
-// Show BrowserView
+// Show BrowserView (HTML mode)
 ipcMain.handle('show-browser-view', async () => {
   if (htmlBrowserView) {
     const bounds = mainWindow.getBounds();
@@ -176,6 +182,7 @@ ipcMain.handle('show-browser-view', async () => {
       height: bounds.height - 70
     });
   }
+  return { success: true };
 });
 
 // Hide BrowserView
@@ -183,13 +190,23 @@ ipcMain.handle('hide-browser-view', async () => {
   if (htmlBrowserView) {
     htmlBrowserView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
   }
+  return { success: true };
+});
+
+// Get current mode indicator
+ipcMain.handle('get-mode', async () => {
+  if (htmlBrowserView) {
+    const bounds = htmlBrowserView.getBounds();
+    return { mode: bounds.width > 0 ? 'html' : 'socket-agent' };
+  }
+  return { mode: 'socket-agent' };
 });
 
 // Handle window resize to update BrowserView bounds
-app.on('browser-window-created', () => {
-  mainWindow.on('resize', () => {
+function setupResizeHandler(window) {
+  window.on('resize', () => {
     if (htmlBrowserView) {
-      const bounds = mainWindow.getBounds();
+      const bounds = window.getBounds();
       // Check if BrowserView is currently visible (width > 0)
       const currentBounds = htmlBrowserView.getBounds();
       if (currentBounds.width > 0) {
@@ -202,4 +219,4 @@ app.on('browser-window-created', () => {
       }
     }
   });
-});
+}
