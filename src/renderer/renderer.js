@@ -53,8 +53,14 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function handleNavigation() {
-    const url = urlInput.value.trim();
+    let url = urlInput.value.trim();
     if (!url) return;
+
+    // Normalize URL - add https:// if no protocol specified
+    if (!url.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:/)) {
+        url = 'https://' + url;
+        urlInput.value = url; // Update input field
+    }
 
     currentUrl = url;
     showLoading();

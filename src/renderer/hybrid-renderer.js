@@ -85,6 +85,12 @@ class HybridRenderer {
         if (window.bindGeneratedUIEvents) {
             window.bindGeneratedUIEvents();
         }
+
+        // Hide loading screen when Socket Agent content is ready
+        const loadingScreen = document.getElementById('loading');
+        const blankScreen = document.getElementById('blank');
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+        if (blankScreen) blankScreen.classList.add('hidden');
     }
 
     /**
@@ -99,6 +105,12 @@ class HybridRenderer {
         if (!result.success) {
             throw new Error(result.error || 'Failed to load HTML content');
         }
+
+        // Hide loading screen when HTML mode starts
+        const loadingScreen = document.getElementById('loading');
+        const blankScreen = document.getElementById('blank');
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+        if (blankScreen) blankScreen.classList.add('hidden');
     }
 
     /**
