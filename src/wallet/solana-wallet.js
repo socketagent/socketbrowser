@@ -10,20 +10,27 @@ const bs58 = require('bs58');
 const { Buffer } = require('buffer');
 
 class SolanaWallet {
-    constructor() {
+    constructor(storage = null) {
         this.keypair = null;
         this.connection = new Connection(
             'https://api.mainnet-beta.solana.com',
             'confirmed'
         );
         this.isUnlocked = false;
+
+        // Storage adapter - defaults to localStorage for renderer, or can be injected
+        this.storage = storage || {
+            getItem: (key) => localStorage.getItem(key),
+            setItem: (key, value) => localStorage.setItem(key, value),
+            removeItem: (key) => localStorage.removeItem(key)
+        };
     }
 
     /**
      * Check if wallet exists
      */
     hasWallet() {
-        return localStorage.getItem('solana_wallet_encrypted') !== null;
+        return this.storage.getItem('solana_wallet_encrypted') !== null;
     }
 
     /**
@@ -95,7 +102,7 @@ class SolanaWallet {
      * Unlock existing wallet
      */
     async unlock(password) {
-        const encrypted = localStorage.getItem('solana_wallet_encrypted');
+        const encrypted = this.storage.getItem('solana_wallet_encrypted');
         if (!encrypted) {
             throw new Error('No wallet found');
         }
@@ -181,12 +188,12 @@ class SolanaWallet {
     }
 
     /**
-     * Save wallet encrypted to localStorage
+     * Save wallet encrypted to storage
      */
     async saveWallet(keypair, password) {
         const encrypted = await this.encrypt(keypair.secretKey, password);
-        localStorage.setItem('solana_wallet_encrypted', encrypted);
-        localStorage.setItem('solana_wallet_address', keypair.publicKey.toString());
+        this.storage.setItem('solana_wallet_encrypted', encrypted);
+        this.storage.setItem('solana_wallet_address', keypair.publicKey.toString());
     }
 
     /**

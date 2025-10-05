@@ -507,11 +507,13 @@ window.currentLLMProvider = currentLLMProvider;
 window.bindGeneratedUIEvents = bindGeneratedUIEvents;
 
 // Listen for navigation events from BrowserView
-window.electronAPI.onHybridNavigate((url) => {
-    log(`BrowserView navigation intercepted: ${url}`);
-    urlInput.value = url;
-    handleNavigation();
-});
+if (window.electronAPI && window.electronAPI.onHybridNavigate) {
+    window.electronAPI.onHybridNavigate((url) => {
+        log(`BrowserView navigation intercepted: ${url}`);
+        urlInput.value = url;
+        handleNavigation();
+    });
+}
 
 // Initialize
 log('Socket Browser initialized (Hybrid Mode)');

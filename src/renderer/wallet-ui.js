@@ -13,6 +13,8 @@ class WalletUI {
         this.walletBtn = document.getElementById('wallet-btn');
         this.walletBalanceDisplay = document.getElementById('wallet-balance');
 
+        console.log('WalletUI constructor - walletBtn:', this.walletBtn);
+
         // Screens
         this.screens = {
             setup: document.getElementById('wallet-setup'),
@@ -24,9 +26,12 @@ class WalletUI {
             export: document.getElementById('wallet-export')
         };
 
-        // Initialize wallet instance
-        if (typeof SolanaWallet !== 'undefined') {
-            this.wallet = new SolanaWallet();
+        // Initialize wallet API (uses IPC to main process)
+        if (window.electronAPI && window.electronAPI.wallet) {
+            this.wallet = window.electronAPI.wallet;
+            console.log('Wallet API initialized');
+        } else {
+            console.error('Wallet API not available!');
         }
 
         this.bindEvents();
@@ -35,8 +40,20 @@ class WalletUI {
 
     bindEvents() {
         // Open/close wallet modal
-        this.walletBtn.addEventListener('click', () => this.openWallet());
-        document.getElementById('wallet-close-btn').addEventListener('click', () => this.closeModal());
+        if (this.walletBtn) {
+            console.log('Binding click event to wallet button');
+            this.walletBtn.addEventListener('click', () => {
+                console.log('Wallet button clicked!');
+                this.openWallet();
+            });
+        } else {
+            console.error('Wallet button not found!');
+        }
+
+        const closeBtn = document.getElementById('wallet-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeModal());
+        }
 
         // Setup screen
         document.getElementById('create-wallet-btn').addEventListener('click', () => this.showScreen('create'));
@@ -93,34 +110,43 @@ class WalletUI {
         });
     }
 
-    checkWalletStatus() {
+    async checkWalletStatus() {
         if (!this.wallet) {
             this.walletBalanceDisplay.textContent = 'N/A';
             return;
         }
 
         // Check if wallet exists in storage
-        const hasWallet = this.wallet.hasWallet();
-        if (hasWallet && this.wallet.isUnlocked) {
-            this.loadWalletInfo();
+        const result = await this.wallet.hasWallet();
+        if (result.success && result.hasWallet) {
+            const unlockResult = await this.wallet.isUnlocked();
+            if (unlockResult.success && unlockResult.isUnlocked) {
+                await this.loadWalletInfo();
+            }
         }
     }
 
-    openWallet() {
+    async openWallet() {
         if (!this.wallet) {
             this.showStatus('Wallet not available', 'error');
             return;
         }
 
-        const hasWallet = this.wallet.hasWallet();
+        const hasResult = await this.wallet.hasWallet();
+        const hasWallet = hasResult.success && hasResult.hasWallet;
 
         if (!hasWallet) {
             this.showScreen('setup');
-        } else if (!this.wallet.isUnlocked) {
-            this.showScreen('unlock');
         } else {
-            this.showScreen('main');
-            this.loadWalletInfo();
+            const unlockResult = await this.wallet.isUnlocked();
+            const isUnlocked = unlockResult.success && unlockResult.isUnlocked;
+
+            if (!isUnlocked) {
+                this.showScreen('unlock');
+            } else {
+                this.showScreen('main');
+                await this.loadWalletInfo();
+            }
         }
 
         this.modal.classList.remove('hidden');
@@ -169,6 +195,11 @@ class WalletUI {
             this.showStatus('Creating wallet...', 'info');
 
             const result = await this.wallet.generateNew(password);
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to create wallet');
+            }
+
             this.currentMnemonic = result.mnemonic;
 
             // Display recovery phrase
@@ -216,6 +247,7 @@ class WalletUI {
         try {
             this.showStatus('Importing wallet...', 'info');
 
+            let result;
             if (activeTab === 'mnemonic') {
                 const mnemonic = document.getElementById('import-mnemonic').value.trim();
                 const password = document.getElementById('import-password').value;
@@ -225,7 +257,7 @@ class WalletUI {
                     return;
                 }
 
-                await this.wallet.importFromMnemonic(mnemonic, password);
+                result = await this.wallet.importFromMnemonic(mnemonic, password);
             } else {
                 const privateKey = document.getElementById('import-private-key').value.trim();
                 const password = document.getElementById('import-key-password').value;
@@ -235,12 +267,16 @@ class WalletUI {
                     return;
                 }
 
-                await this.wallet.importFromPrivateKey(privateKey, password);
+                result = await this.wallet.importFromPrivateKey(privateKey, password);
+            }
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to import wallet');
             }
 
             this.showStatus('Wallet imported successfully!', 'success');
             this.showScreen('main');
-            this.loadWalletInfo();
+            await this.loadWalletInfo();
         } catch (error) {
             this.showStatus(`Failed to import: ${error.message}`, 'error');
         }
@@ -257,23 +293,29 @@ class WalletUI {
         try {
             this.showStatus('Unlocking wallet...', 'info');
 
-            await this.wallet.unlock(password);
+            const result = await this.wallet.unlock(password);
+
+            if (!result.success) {
+                throw new Error(result.error || 'Incorrect password');
+            }
 
             this.showStatus('Wallet unlocked!', 'success');
             this.showScreen('main');
-            this.loadWalletInfo();
+            await this.loadWalletInfo();
         } catch (error) {
             this.showStatus('Incorrect password', 'error');
         }
     }
 
     async loadWalletInfo() {
-        if (!this.wallet || !this.wallet.isUnlocked) return;
+        if (!this.wallet) return;
 
         try {
             // Get and display address
-            const address = this.wallet.getAddress();
-            document.getElementById('wallet-address-display').textContent = address;
+            const addressResult = await this.wallet.getAddress();
+            if (addressResult.success) {
+                document.getElementById('wallet-address-display').textContent = addressResult.address;
+            }
 
             // Get and display balance
             await this.refreshBalance();
@@ -283,17 +325,20 @@ class WalletUI {
     }
 
     async refreshBalance() {
-        if (!this.wallet || !this.wallet.isUnlocked) return;
+        if (!this.wallet) return;
 
         try {
             document.getElementById('wallet-balance-display').textContent = 'Loading...';
             this.walletBalanceDisplay.textContent = '...';
 
-            const balance = await this.wallet.getBalance();
-            const balanceText = `${balance.toFixed(4)} SOL`;
-
-            document.getElementById('wallet-balance-display').textContent = balanceText;
-            this.walletBalanceDisplay.textContent = balance.toFixed(2);
+            const result = await this.wallet.getBalance();
+            if (result.success) {
+                const balanceText = `${result.balance.toFixed(4)} SOL`;
+                document.getElementById('wallet-balance-display').textContent = balanceText;
+                this.walletBalanceDisplay.textContent = result.balance.toFixed(2);
+            } else {
+                throw new Error(result.error);
+            }
         } catch (error) {
             document.getElementById('wallet-balance-display').textContent = 'Error';
             this.walletBalanceDisplay.textContent = '--';
@@ -310,16 +355,20 @@ class WalletUI {
         });
     }
 
-    showExportScreen() {
-        if (!this.wallet || !this.wallet.isUnlocked) {
-            this.showStatus('Wallet must be unlocked', 'error');
+    async showExportScreen() {
+        if (!this.wallet) {
+            this.showStatus('Wallet not available', 'error');
             return;
         }
 
         try {
             // Get private key
-            const privateKey = this.wallet.exportPrivateKey();
-            document.getElementById('export-private-key-display').textContent = privateKey;
+            const result = await this.wallet.exportPrivateKey();
+            if (result.success) {
+                document.getElementById('export-private-key-display').textContent = result.privateKey;
+            } else {
+                throw new Error(result.error || 'Failed to export private key');
+            }
 
             // Note: We can't retrieve the mnemonic after wallet creation
             // It's only available during generateNew()
@@ -359,8 +408,8 @@ class WalletUI {
         });
     }
 
-    lockWallet() {
-        this.wallet.lock();
+    async lockWallet() {
+        await this.wallet.lock();
         this.currentMnemonic = null;
         this.walletBalanceDisplay.textContent = '--';
         this.showStatus('Wallet locked', 'info');

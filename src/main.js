@@ -1,6 +1,32 @@
 const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const SolanaWallet = require('./wallet/solana-wallet');
+
+// Simple file-based storage for wallet
+const storageFile = path.join(app.getPath('userData'), 'wallet-storage.json');
+
+function loadStorage() {
+  try {
+    if (fs.existsSync(storageFile)) {
+      return JSON.parse(fs.readFileSync(storageFile, 'utf8'));
+    }
+  } catch (error) {
+    console.error('Failed to load storage:', error);
+  }
+  return {};
+}
+
+function saveStorage(data) {
+  try {
+    fs.writeFileSync(storageFile, JSON.stringify(data, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Failed to save storage:', error);
+  }
+}
+
+let storageData = loadStorage();
 
 let mainWindow;
 let htmlBrowserView = null;
@@ -220,3 +246,97 @@ function setupResizeHandler(window) {
     }
   });
 }
+
+// Wallet instance (shared across app) with file-based storage adapter
+const storageAdapter = {
+  getItem: (key) => storageData[key] || null,
+  setItem: (key, value) => {
+    storageData[key] = value;
+    saveStorage(storageData);
+  },
+  removeItem: (key) => {
+    delete storageData[key];
+    saveStorage(storageData);
+  }
+};
+
+let walletInstance = new SolanaWallet(storageAdapter);
+
+// Wallet IPC handlers
+ipcMain.handle('wallet-generate-new', async (event, password) => {
+  try {
+    const result = await walletInstance.generateNew(password);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallet-import-mnemonic', async (event, mnemonic, password) => {
+  try {
+    const result = await walletInstance.importFromMnemonic(mnemonic, password);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallet-import-private-key', async (event, privateKey, password) => {
+  try {
+    const result = await walletInstance.importFromPrivateKey(privateKey, password);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallet-unlock', async (event, password) => {
+  try {
+    const result = await walletInstance.unlock(password);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallet-lock', async () => {
+  walletInstance.lock();
+  return { success: true };
+});
+
+ipcMain.handle('wallet-get-address', async () => {
+  try {
+    const address = walletInstance.getAddress();
+    return { success: true, address };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallet-get-balance', async () => {
+  try {
+    const balance = await walletInstance.getBalance();
+    return { success: true, balance };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallet-export-private-key', async () => {
+  try {
+    const privateKey = walletInstance.exportPrivateKey();
+    return { success: true, privateKey };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('wallet-has-wallet', async () => {
+  const hasWallet = walletInstance.hasWallet();
+  return { success: true, hasWallet };
+});
+
+ipcMain.handle('wallet-is-unlocked', async () => {
+  const isUnlocked = walletInstance.isUnlocked;
+  return { success: true, isUnlocked };
+});
