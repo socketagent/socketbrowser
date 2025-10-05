@@ -8,6 +8,7 @@ const { Connection, Keypair, Transaction, SystemProgram, LAMPORTS_PER_SOL, Publi
 const bip39 = require('bip39');
 const bs58 = require('bs58');
 const { Buffer } = require('buffer');
+const crypto = require('crypto');
 
 class SolanaWallet {
     constructor(storage = null) {
@@ -197,90 +198,47 @@ class SolanaWallet {
     }
 
     /**
-     * Encrypt data with password using Web Crypto API
+     * Encrypt data with password using Node.js crypto
      */
     async encrypt(data, password) {
-        const encoder = new TextEncoder();
+        // Generate salt and IV
+        const salt = crypto.randomBytes(16);
+        const iv = crypto.randomBytes(12);
 
-        // Derive key from password
-        const passwordKey = await crypto.subtle.importKey(
-            'raw',
-            encoder.encode(password),
-            { name: 'PBKDF2' },
-            false,
-            ['deriveBits', 'deriveKey']
-        );
+        // Derive key from password using PBKDF2
+        const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
 
-        const salt = crypto.getRandomValues(new Uint8Array(16));
+        // Encrypt data using AES-256-GCM
+        const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+        const encrypted = Buffer.concat([cipher.update(Buffer.from(data)), cipher.final()]);
+        const authTag = cipher.getAuthTag();
 
-        const key = await crypto.subtle.deriveKey(
-            {
-                name: 'PBKDF2',
-                salt: salt,
-                iterations: 100000,
-                hash: 'SHA-256'
-            },
-            passwordKey,
-            { name: 'AES-GCM', length: 256 },
-            false,
-            ['encrypt']
-        );
+        // Combine salt + iv + authTag + encrypted data
+        const combined = Buffer.concat([salt, iv, authTag, encrypted]);
 
-        const iv = crypto.getRandomValues(new Uint8Array(12));
-
-        const encrypted = await crypto.subtle.encrypt(
-            { name: 'AES-GCM', iv: iv },
-            key,
-            data
-        );
-
-        // Combine salt + iv + encrypted data
-        const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
-        combined.set(salt, 0);
-        combined.set(iv, salt.length);
-        combined.set(new Uint8Array(encrypted), salt.length + iv.length);
-
-        return Buffer.from(combined).toString('base64');
+        return combined.toString('base64');
     }
 
     /**
-     * Decrypt data with password
+     * Decrypt data with password using Node.js crypto
      */
     async decrypt(encryptedData, password) {
         const combined = Buffer.from(encryptedData, 'base64');
 
+        // Extract components
         const salt = combined.slice(0, 16);
         const iv = combined.slice(16, 28);
-        const data = combined.slice(28);
+        const authTag = combined.slice(28, 44);
+        const data = combined.slice(44);
 
-        const encoder = new TextEncoder();
+        // Derive key from password
+        const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
 
-        const passwordKey = await crypto.subtle.importKey(
-            'raw',
-            encoder.encode(password),
-            { name: 'PBKDF2' },
-            false,
-            ['deriveBits', 'deriveKey']
-        );
+        // Decrypt data
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+        decipher.setAuthTag(authTag);
 
-        const key = await crypto.subtle.deriveKey(
-            {
-                name: 'PBKDF2',
-                salt: salt,
-                iterations: 100000,
-                hash: 'SHA-256'
-            },
-            passwordKey,
-            { name: 'AES-GCM', length: 256 },
-            false,
-            ['decrypt']
-        );
-
-        const decrypted = await crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv: iv },
-            key,
-            data
-        );
+        const decrypted = Buffer.concat([decipher.update(data), decipher.final()]);
 
         return new Uint8Array(decrypted);
     }
