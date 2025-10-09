@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -29,7 +29,6 @@ function saveStorage(data) {
 let storageData = loadStorage();
 
 let mainWindow;
-let htmlBrowserView = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -45,9 +44,6 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  // Setup resize handler
-  setupResizeHandler(mainWindow);
-
   // Open DevTools in development
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
@@ -55,9 +51,6 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    if (htmlBrowserView) {
-      htmlBrowserView = null;
-    }
   });
 }
 
@@ -134,10 +127,9 @@ ipcMain.handle('discover-socket-agent', async (event, url) => {
 });
 
 // Handle complete website generation
-ipcMain.handle('generate-website', async (event, descriptor, llmProvider) => {
+ipcMain.handle('generate-website', async (event, descriptor) => {
   const descriptorJson = JSON.stringify(descriptor);
-  // Pass LLM provider as additional argument
-  return await callPythonBridge('generate-website', [descriptorJson, llmProvider || 'openai']);
+  return await callPythonBridge('generate-website', [descriptorJson]);
 });
 
 // Handle API calls
@@ -145,107 +137,6 @@ ipcMain.handle('call-api', async (event, url, endpoint, params) => {
   const paramsJson = JSON.stringify(params);
   return await callPythonBridge('call-api', [url, endpoint, paramsJson]);
 });
-
-// Natural language queries removed - using direct UI interactions
-
-// BrowserView management for HTML rendering
-function getOrCreateBrowserView() {
-  if (!htmlBrowserView) {
-    htmlBrowserView = new BrowserView({
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        sandbox: true
-      }
-    });
-    mainWindow.addBrowserView(htmlBrowserView);
-
-    // Intercept navigation in BrowserView to check for Socket Agent APIs
-    htmlBrowserView.webContents.on('will-navigate', (event, url) => {
-      event.preventDefault();
-      mainWindow.webContents.send('hybrid-navigate', url);
-    });
-
-    // Handle new window requests
-    htmlBrowserView.webContents.setWindowOpenHandler(({ url }) => {
-      mainWindow.webContents.send('hybrid-navigate', url);
-      return { action: 'deny' };
-    });
-  }
-  return htmlBrowserView;
-}
-
-// Load URL in BrowserView
-ipcMain.handle('load-html-in-browser-view', async (event, url) => {
-  try {
-    const view = getOrCreateBrowserView();
-
-    // Position BrowserView below the chrome (70px for navigation bar)
-    const bounds = mainWindow.getBounds();
-    view.setBounds({
-      x: 0,
-      y: 70,
-      width: bounds.width,
-      height: bounds.height - 70
-    });
-
-    await view.webContents.loadURL(url);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to load URL in BrowserView:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// Show BrowserView (HTML mode)
-ipcMain.handle('show-browser-view', async () => {
-  if (htmlBrowserView) {
-    const bounds = mainWindow.getBounds();
-    htmlBrowserView.setBounds({
-      x: 0,
-      y: 70,
-      width: bounds.width,
-      height: bounds.height - 70
-    });
-  }
-  return { success: true };
-});
-
-// Hide BrowserView
-ipcMain.handle('hide-browser-view', async () => {
-  if (htmlBrowserView) {
-    htmlBrowserView.setBounds({ x: 0, y: 0, width: 0, height: 0 });
-  }
-  return { success: true };
-});
-
-// Get current mode indicator
-ipcMain.handle('get-mode', async () => {
-  if (htmlBrowserView) {
-    const bounds = htmlBrowserView.getBounds();
-    return { mode: bounds.width > 0 ? 'html' : 'socket-agent' };
-  }
-  return { mode: 'socket-agent' };
-});
-
-// Handle window resize to update BrowserView bounds
-function setupResizeHandler(window) {
-  window.on('resize', () => {
-    if (htmlBrowserView) {
-      const bounds = window.getBounds();
-      // Check if BrowserView is currently visible (width > 0)
-      const currentBounds = htmlBrowserView.getBounds();
-      if (currentBounds.width > 0) {
-        htmlBrowserView.setBounds({
-          x: 0,
-          y: 70,
-          width: bounds.width,
-          height: bounds.height - 70
-        });
-      }
-    }
-  });
-}
 
 // Wallet instance (shared across app) with file-based storage adapter
 const storageAdapter = {

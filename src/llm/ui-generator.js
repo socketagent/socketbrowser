@@ -1,19 +1,15 @@
-const OpenAI = require('openai');
+const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 
-// Initialize OpenAI client
-let openai = null;
+// Get inference API endpoint from environment
+function getInferenceEndpoint() {
+    return process.env.INFERENCE_API_URL || 'http://localhost:8000/generate';
+}
 
-function initializeOpenAI() {
-    if (!openai) {
-        const apiKey = process.env.OPENAI_API_KEY || getAPIKeyFromFile();
-        if (!apiKey) {
-            throw new Error('OpenAI API key not found. Set OPENAI_API_KEY environment variable or add it to .env file.');
-        }
-        openai = new OpenAI({ apiKey });
-    }
-    return openai;
+// Get API key/token from environment
+function getAPIKey() {
+    return process.env.INFERENCE_API_KEY || getAPIKeyFromFile();
 }
 
 function getAPIKeyFromFile() {
@@ -28,7 +24,7 @@ function getAPIKeyFromFile() {
         for (const envPath of envPaths) {
             if (fs.existsSync(envPath)) {
                 const envContent = fs.readFileSync(envPath, 'utf8');
-                const match = envContent.match(/OPENAI_API_KEY=(.+)/);
+                const match = envContent.match(/INFERENCE_API_KEY=(.+)/);
                 if (match && match[1]) {
                     return match[1].trim().replace(/['"]/g, '');
                 }
@@ -43,38 +39,41 @@ function getAPIKeyFromFile() {
 }
 
 /**
- * Generate HTML UI from Socket Agent descriptor using LLM
+ * Generate HTML UI from Socket Agent descriptor using custom inference API
  * @param {Object} descriptor - The Socket Agent API descriptor
  * @returns {Promise<string>} - Generated HTML content
  */
 async function generateUI(descriptor) {
     try {
-        const client = initializeOpenAI();
+        const endpoint = getInferenceEndpoint();
+        const apiKey = getAPIKey();
 
         const prompt = buildUIGenerationPrompt(descriptor);
 
-        console.log('Sending UI generation request to OpenAI...');
+        console.log(`Sending UI generation request to ${endpoint}...`);
 
-        const response = await client.chat.completions.create({
-            model: 'gpt-4',
-            messages: [
-                {
-                    role: 'system',
-                    content: `You are a UI generator that creates HTML interfaces for Socket Agent APIs.
-                    Generate clean, functional HTML that uses the provided CSS classes and follows the patterns shown in the example.
-                    Always include proper form elements, buttons with data-api-call attributes, and result containers.
-                    Make the interface intuitive and user-friendly based on the API's purpose.`
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            temperature: 0.7,
-            max_tokens: 3000
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        // Add authorization header if API key is provided
+        if (apiKey) {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+
+        const response = await axios.post(endpoint, {
+            descriptor: descriptor,
+            prompt: prompt
+        }, {
+            headers,
+            timeout: 30000 // 30 second timeout
         });
 
-        const generatedHTML = response.choices[0].message.content;
+        const generatedHTML = response.data.html || response.data.content;
+
+        if (!generatedHTML) {
+            throw new Error('No HTML content in response');
+        }
 
         console.log('UI generation completed successfully');
 
@@ -84,12 +83,21 @@ async function generateUI(descriptor) {
     } catch (error) {
         console.error('UI generation failed:', error.message);
 
-        if (error.message.includes('API key')) {
-            throw new Error('OpenAI API key is invalid or missing. Please check your configuration.');
-        } else if (error.status === 429) {
-            throw new Error('OpenAI rate limit exceeded. Please try again in a few minutes.');
-        } else if (error.status === 403) {
-            throw new Error('OpenAI API access denied. Please check your API key and billing status.');
+        if (error.response) {
+            const status = error.response.status;
+            if (status === 401) {
+                throw new Error('Authentication failed. Check your INFERENCE_API_KEY.');
+            } else if (status === 402) {
+                throw new Error('Insufficient credits. Please add more credits to continue.');
+            } else if (status === 429) {
+                throw new Error('Rate limit exceeded. Please try again later.');
+            } else if (status >= 500) {
+                throw new Error(`Inference server error (${status}). Please try again.`);
+            } else {
+                throw new Error(`Request failed with status ${status}: ${error.response.data?.error || 'Unknown error'}`);
+            }
+        } else if (error.code === 'ECONNREFUSED') {
+            throw new Error(`Cannot connect to inference server at ${getInferenceEndpoint()}. Is it running?`);
         } else {
             throw new Error(`UI generation failed: ${error.message}`);
         }

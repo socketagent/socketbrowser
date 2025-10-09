@@ -6,9 +6,6 @@ const navigateBtn = document.getElementById('navigate-btn');
 const backBtn = document.getElementById('back-btn');
 const forwardBtn = document.getElementById('forward-btn');
 const homeBtn = document.getElementById('home-btn');
-const llmToggleBtn = document.getElementById('llm-toggle-btn');
-const llmIcon = document.getElementById('llm-icon');
-const llmName = document.getElementById('llm-name');
 // Natural language interface removed
 const blankScreen = document.getElementById('blank');
 const loadingScreen = document.getElementById('loading');
@@ -23,8 +20,6 @@ let currentUrl = '';
 let currentDescriptor = null;
 let navigationHistory = []; // Stack for back/forward navigation
 let currentHistoryIndex = -1;
-let currentLLMProvider = 'openai'; // Track current provider
-let hybridRenderer = null; // Hybrid renderer instance
 
 // Event listeners
 navigateBtn.addEventListener('click', handleNavigation);
@@ -35,10 +30,6 @@ retryBtn.addEventListener('click', handleNavigation);
 backBtn.addEventListener('click', goBack);
 forwardBtn.addEventListener('click', goForward);
 homeBtn.addEventListener('click', goHome);
-llmToggleBtn.addEventListener('click', toggleLLMProvider);
-
-// Initialize LLM provider display
-updateLLMDisplay();
 
 // Natural language interface removed
 
@@ -56,9 +47,9 @@ async function handleNavigation() {
     let url = urlInput.value.trim();
     if (!url) return;
 
-    // Normalize URL - add https:// if no protocol specified
+    // Normalize URL - add http:// if no protocol specified
     if (!url.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:/)) {
-        url = 'https://' + url;
+        url = 'http://' + url;
         urlInput.value = url; // Update input field
     }
 
@@ -66,17 +57,25 @@ async function handleNavigation() {
     showLoading();
 
     try {
-        // Use hybrid renderer to handle both Socket Agent and HTML
-        await hybridRenderer.render(url);
+        // Discover Socket Agent API
+        log(`Discovering Socket Agent at: ${url}`);
+        const discoveryResult = await window.electronAPI.discoverSocketAgent(url);
 
-        // If it's a Socket Agent site, update our state
-        if (hybridRenderer.isSocketAgentMode()) {
-            log('Socket Agent site loaded');
-            // The hybrid renderer already handled display
-        } else {
-            log('Traditional HTML site loaded');
-            // BrowserView is handling the display
+        if (!discoveryResult.success) {
+            throw new Error(discoveryResult.error || 'Discovery failed');
         }
+
+        currentDescriptor = discoveryResult.descriptor;
+        log('API discovered:', currentDescriptor.name);
+
+        // Generate website from descriptor
+        const websiteResult = await window.electronAPI.generateWebsite(currentDescriptor);
+
+        if (!websiteResult.success) {
+            throw new Error(websiteResult.error || 'Website generation failed');
+        }
+
+        showGeneratedWebsite(websiteResult.html);
 
     } catch (error) {
         log('Navigation error:', error.message);
@@ -112,8 +111,7 @@ function showBlank() {
 }
 
 function hideAllScreens() {
-    const htmlView = document.getElementById('html-view');
-    [blankScreen, loadingScreen, generatedUI, htmlView, errorScreen].forEach(el => {
+    [blankScreen, loadingScreen, generatedUI, errorScreen].forEach(el => {
         el.classList.add('hidden');
     });
 }
@@ -299,8 +297,8 @@ async function regeneratePageWithData(data, context) {
             }
         };
 
-        // Generate new page with current LLM provider
-        const websiteResult = await window.electronAPI.generateWebsite(enhancedDescriptor, currentLLMProvider);
+        // Generate new page
+        const websiteResult = await window.electronAPI.generateWebsite(enhancedDescriptor);
 
         if (!websiteResult.success) {
             throw new Error(websiteResult.error || 'Page generation failed');
@@ -440,40 +438,6 @@ function updateNavigationButtons() {
     forwardBtn.disabled = currentHistoryIndex >= navigationHistory.length - 1;
 }
 
-function toggleLLMProvider() {
-    // Toggle between providers
-    currentLLMProvider = currentLLMProvider === 'openai' ? 'ollama' : 'openai';
-
-    // Update global reference for hybrid renderer
-    window.currentLLMProvider = currentLLMProvider;
-
-    log(`Switched to ${currentLLMProvider.toUpperCase()}`);
-    updateLLMDisplay();
-
-    // Show notification
-    showNotification(`Now using ${currentLLMProvider === 'openai' ? 'OpenAI (GPT-4o)' : 'Ollama (Local)'}`);
-}
-
-function updateLLMDisplay() {
-    if (currentLLMProvider === 'openai') {
-        llmIcon.textContent = '🤖';
-        llmName.textContent = 'OpenAI';
-        llmToggleBtn.classList.remove('ollama');
-        llmToggleBtn.title = 'Using OpenAI GPT-4o - Click to switch to Ollama';
-    } else {
-        llmIcon.textContent = '🏠';
-        llmName.textContent = 'Ollama';
-        llmToggleBtn.classList.add('ollama');
-        llmToggleBtn.title = 'Using Ollama (Local) - Click to switch to OpenAI';
-    }
-}
-
-function showNotification(message) {
-    // Simple notification in debug panel
-    log(`[NOTIFICATION] ${message}`);
-
-    // TODO: Add toast notification UI later
-}
 
 function log(message, data = null) {
     const timestamp = new Date().toLocaleTimeString();
@@ -497,24 +461,6 @@ function log(message, data = null) {
     console.log(message, data);
 }
 
-// Natural language functions removed - using direct UI interactions only
-
-// Initialize hybrid renderer
-hybridRenderer = new HybridRenderer();
-
-// Expose for hybrid-renderer.js
-window.currentLLMProvider = currentLLMProvider;
-window.bindGeneratedUIEvents = bindGeneratedUIEvents;
-
-// Listen for navigation events from BrowserView
-if (window.electronAPI && window.electronAPI.onHybridNavigate) {
-    window.electronAPI.onHybridNavigate((url) => {
-        log(`BrowserView navigation intercepted: ${url}`);
-        urlInput.value = url;
-        handleNavigation();
-    });
-}
-
 // Initialize
-log('Socket Browser initialized (Hybrid Mode)');
+log('Socket Browser initialized - Socket Agent Mode');
 showBlank();

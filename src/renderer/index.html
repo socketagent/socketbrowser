@@ -11,15 +11,6 @@
             <button id="back-btn" class="nav-btn" disabled>←</button>
             <button id="forward-btn" class="nav-btn" disabled>→</button>
             <button id="home-btn" class="nav-btn">🏠</button>
-            <div class="mode-indicator" id="mode-indicator">
-                <span class="mode-badge" id="mode-badge" title="Current rendering mode">HTML</span>
-            </div>
-            <div class="llm-toggle">
-                <button id="llm-toggle-btn" class="llm-btn" title="Switch LLM Provider">
-                    <span id="llm-icon">🤖</span>
-                    <span id="llm-name">OpenAI</span>
-                </button>
-            </div>
             <button id="wallet-btn" class="wallet-btn" title="Solana Wallet">
                 <span class="wallet-icon">💰</span>
                 <span id="wallet-balance" class="wallet-balance">--</span>
@@ -44,10 +35,6 @@
 
         <div id="generated-ui" class="hidden">
             <!-- Generated UI will be inserted here by the LLM -->
-        </div>
-
-        <div id="html-view" class="hidden">
-            <!-- Traditional HTML websites rendered via BrowserView -->
         </div>
 
         <div id="error" class="error-screen hidden">
@@ -231,7 +218,6 @@
         </div>
     </div>
 
-    <script src="hybrid-renderer.js"></script>
     <script src="wallet-ui.js"></script>
     <script src="renderer.js"></script>
 </body>
