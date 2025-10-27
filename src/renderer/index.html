@@ -15,6 +15,10 @@
                 <span class="wallet-icon">💰</span>
                 <span id="wallet-balance" class="wallet-balance">--</span>
             </button>
+            <button id="account-btn" class="account-btn" title="Socket Agent Account">
+                <span class="account-icon">👤</span>
+                <span id="account-username" class="account-username">--</span>
+            </button>
         </div>
         <div class="address-bar">
             <input type="text" id="url-input" placeholder="Enter URL or Socket Agent API"
@@ -218,7 +222,114 @@
         </div>
     </div>
 
+    <!-- Account Modal -->
+    <div id="account-modal" class="wallet-modal hidden">
+        <div class="wallet-modal-content">
+            <div class="wallet-header">
+                <h2>👤 Socket Agent Account</h2>
+                <button class="wallet-close-btn" id="account-close-btn">×</button>
+            </div>
+
+            <!-- Login/Register Choice -->
+            <div id="account-choice" class="wallet-screen">
+                <div class="wallet-setup-options">
+                    <h3>Welcome to Socket Browser</h3>
+                    <p>Login or create an account to access AI-generated UIs with render credits.</p>
+                    <button id="show-login-btn" class="wallet-action-btn primary">
+                        🔐 Login
+                    </button>
+                    <button id="show-register-btn" class="wallet-action-btn">
+                        🆕 Create Account
+                    </button>
+                </div>
+            </div>
+
+            <!-- Login Screen -->
+            <div id="account-login" class="wallet-screen hidden">
+                <h3>Login</h3>
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="login-username" placeholder="Enter username" class="wallet-input">
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="login-password" placeholder="Enter password" class="wallet-input">
+                </div>
+                <div class="wallet-actions">
+                    <button id="login-submit-btn" class="wallet-action-btn primary">Login</button>
+                    <button id="login-back-btn" class="wallet-action-btn">Back</button>
+                </div>
+            </div>
+
+            <!-- Register Screen -->
+            <div id="account-register" class="wallet-screen hidden">
+                <h3>Create Account</h3>
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="register-username" placeholder="Choose username" class="wallet-input">
+                </div>
+                <div class="form-group">
+                    <label>Email (optional):</label>
+                    <input type="email" id="register-email" placeholder="your@email.com" class="wallet-input">
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="register-password" placeholder="Choose password" class="wallet-input">
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password:</label>
+                    <input type="password" id="register-password-confirm" placeholder="Confirm password" class="wallet-input">
+                </div>
+                <div class="wallet-actions">
+                    <button id="register-submit-btn" class="wallet-action-btn primary">Create Account</button>
+                    <button id="register-back-btn" class="wallet-action-btn">Back</button>
+                </div>
+            </div>
+
+            <!-- Logged In View -->
+            <div id="account-main" class="wallet-screen hidden">
+                <div class="wallet-info">
+                    <div class="wallet-address-section">
+                        <label>Username:</label>
+                        <div class="wallet-address">
+                            <code id="account-username-display">Loading...</code>
+                        </div>
+                    </div>
+
+                    <div class="wallet-balance-section">
+                        <label>Render Credits:</label>
+                        <div class="balance-display">
+                            <span id="account-credits-display">-- credits</span>
+                            <button id="refresh-credits-btn" class="refresh-btn">🔄</button>
+                        </div>
+                    </div>
+
+                    <div class="wallet-balance-section">
+                        <label>Email:</label>
+                        <div class="balance-display">
+                            <span id="account-email-display">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wallet-actions-section">
+                    <h4>Actions</h4>
+                    <button id="buy-credits-btn" class="wallet-action-btn primary">💳 Buy Credits</button>
+                    <button id="logout-btn" class="wallet-action-btn">🚪 Logout</button>
+                </div>
+
+                <div class="wallet-info-text">
+                    <p>💡 Credits are used to generate AI interfaces. $1 = 1 credit.</p>
+                </div>
+            </div>
+
+            <!-- Loading/Status Messages -->
+            <div id="account-status" class="wallet-status hidden"></div>
+        </div>
+    </div>
+
     <script src="wallet-ui.js"></script>
+    <script src="auth-ui.js"></script>
     <script src="renderer.js"></script>
 </body>
 </html>

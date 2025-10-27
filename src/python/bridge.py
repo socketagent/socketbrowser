@@ -16,12 +16,17 @@ from dotenv import load_dotenv
 # Load .env file - CRITICAL for configuration!
 load_dotenv()
 
-# Configuration for LLM provider
+# Configuration for render API
+RENDER_API_URL = os.getenv('RENDER_API_URL', 'http://localhost:8000/generate')
+ID_SERVICE_URL = os.getenv('ID_SERVICE_URL', 'https://socketagent.io/v1')
+
+# Configuration for LLM provider (fallback for local generation)
 LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')  # 'openai' or 'ollama'
 OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'qwen2.5-coder:7b-instruct')
 
 # Debug: Print what we loaded
+print(f"[CONFIG] RENDER_API_URL={RENDER_API_URL}", file=sys.stderr)
 print(f"[CONFIG] LLM_PROVIDER={LLM_PROVIDER}", file=sys.stderr)
 print(f"[CONFIG] OLLAMA_MODEL={OLLAMA_MODEL}", file=sys.stderr)
 
@@ -122,10 +127,74 @@ Generate the complete HTML now:"""
         raise Exception(f"Ollama generation failed: {str(e)}")
 
 
-def generate_complete_website(descriptor_data):
+def generate_with_render_api(descriptor_data, access_token):
+    """Generate website using the render API service."""
+    try:
+        print(f"[RENDER API] Calling {RENDER_API_URL}...", file=sys.stderr)
+
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {access_token}'
+        }
+
+        response = requests.post(
+            RENDER_API_URL,
+            json={'descriptor': descriptor_data},
+            headers=headers,
+            timeout=60
+        )
+
+        if response.status_code == 401:
+            raise Exception('Authentication failed. Please login again.')
+        elif response.status_code == 402:
+            raise Exception('Insufficient credits. Please buy more credits from your account.')
+        elif response.status_code != 200:
+            error_msg = response.json().get('error', 'Unknown error') if response.headers.get('content-type', '').startswith('application/json') else response.text
+            raise Exception(f'Render API error ({response.status_code}): {error_msg}')
+
+        result = response.json()
+        html = result.get('html', result.get('content', ''))
+
+        if not html:
+            raise Exception('No HTML content in render API response')
+
+        print(f"[RENDER API] Success! Generated {len(html)} characters", file=sys.stderr)
+        return html
+
+    except requests.exceptions.ConnectionError:
+        raise Exception(f'Cannot connect to render API at {RENDER_API_URL}. Using local generation fallback.')
+    except Exception as e:
+        raise
+
+
+def generate_complete_website(descriptor_data, access_token=None):
     """Generate a complete website (HTML/CSS/JS) from Socket Agent descriptor."""
     try:
-        # Determine the type of service
+        # Try to use render API if access token is provided
+        if access_token:
+            try:
+                website_html = generate_with_render_api(descriptor_data, access_token)
+                return {
+                    "success": True,
+                    "html": website_html
+                }
+            except Exception as e:
+                error_msg = str(e)
+                print(f"[RENDER API] Failed: {error_msg}", file=sys.stderr)
+
+                # If it's an auth or credit error, don't fallback
+                if 'Authentication failed' in error_msg or 'Insufficient credits' in error_msg:
+                    return {
+                        "success": False,
+                        "error": error_msg
+                    }
+
+                # For other errors, fall back to local generation
+                print("[FALLBACK] Using local LLM generation...", file=sys.stderr)
+        else:
+            print("[LOCAL] No access token provided, using local generation", file=sys.stderr)
+
+        # Local generation fallback
         service_type = infer_service_type(descriptor_data)
         endpoints = descriptor_data.get("endpoints", [])
         base_url = descriptor_data.get("baseUrl", "")
@@ -370,15 +439,25 @@ def main():
             descriptor_json = sys.argv[2]
             descriptor = json.loads(descriptor_json)
 
+            # Check for access token (arg 3) and LLM provider override (arg 4)
+            access_token = None
+            if len(sys.argv) >= 4 and sys.argv[3] not in ['openai', 'ollama']:
+                access_token = sys.argv[3]
+                print(f"[AUTH] Access token provided", file=sys.stderr)
+
             # Override LLM_PROVIDER if passed as argument (runtime switching!)
             global LLM_PROVIDER
-            if len(sys.argv) >= 4:
-                runtime_provider = sys.argv[3]
+            if len(sys.argv) >= 5:
+                runtime_provider = sys.argv[4]
                 if runtime_provider in ['openai', 'ollama']:
                     LLM_PROVIDER = runtime_provider
                     print(f"[RUNTIME] Provider overridden to: {LLM_PROVIDER}", file=sys.stderr)
+            elif len(sys.argv) >= 4 and sys.argv[3] in ['openai', 'ollama']:
+                # Backward compatibility: if arg 3 is a provider, use it
+                LLM_PROVIDER = sys.argv[3]
+                print(f"[RUNTIME] Provider overridden to: {LLM_PROVIDER}", file=sys.stderr)
 
-            result = generate_complete_website(descriptor)
+            result = generate_complete_website(descriptor, access_token)
             print(json.dumps(result))
 
         elif command == "call-api":

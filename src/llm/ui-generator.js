@@ -2,40 +2,9 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 
-// Get inference API endpoint from environment
-function getInferenceEndpoint() {
-    return process.env.INFERENCE_API_URL || 'http://localhost:8000/generate';
-}
-
-// Get API key/token from environment
-function getAPIKey() {
-    return process.env.INFERENCE_API_KEY || getAPIKeyFromFile();
-}
-
-function getAPIKeyFromFile() {
-    try {
-        // Try to read from .env file in current directory or parent directories
-        const envPaths = [
-            path.join(process.cwd(), '.env'),
-            path.join(__dirname, '../../.env'),
-            path.join(__dirname, '../../../.env')
-        ];
-
-        for (const envPath of envPaths) {
-            if (fs.existsSync(envPath)) {
-                const envContent = fs.readFileSync(envPath, 'utf8');
-                const match = envContent.match(/INFERENCE_API_KEY=(.+)/);
-                if (match && match[1]) {
-                    return match[1].trim().replace(/['"]/g, '');
-                }
-            }
-        }
-
-        return null;
-    } catch (error) {
-        console.warn('Could not read .env file:', error.message);
-        return null;
-    }
+// Get render API endpoint from environment
+function getRenderEndpoint() {
+    return process.env.RENDER_API_URL || 'http://localhost:8000/generate';
 }
 
 /**
@@ -45,21 +14,22 @@ function getAPIKeyFromFile() {
  */
 async function generateUI(descriptor) {
     try {
-        const endpoint = getInferenceEndpoint();
-        const apiKey = getAPIKey();
+        const endpoint = getRenderEndpoint();
+
+        // Get access token from auth API
+        const accessToken = window.authAPI?.getAccessToken();
+        if (!accessToken) {
+            throw new Error('Please login to use the browser. Click the account button to login or register.');
+        }
 
         const prompt = buildUIGenerationPrompt(descriptor);
 
         console.log(`Sending UI generation request to ${endpoint}...`);
 
         const headers = {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
         };
-
-        // Add authorization header if API key is provided
-        if (apiKey) {
-            headers['Authorization'] = `Bearer ${apiKey}`;
-        }
 
         const response = await axios.post(endpoint, {
             descriptor: descriptor,
@@ -86,18 +56,18 @@ async function generateUI(descriptor) {
         if (error.response) {
             const status = error.response.status;
             if (status === 401) {
-                throw new Error('Authentication failed. Check your INFERENCE_API_KEY.');
+                throw new Error('Authentication failed. Please login again. Click the account button to login.');
             } else if (status === 402) {
-                throw new Error('Insufficient credits. Please add more credits to continue.');
+                throw new Error('Insufficient credits. Please buy more credits from your account dashboard.');
             } else if (status === 429) {
                 throw new Error('Rate limit exceeded. Please try again later.');
             } else if (status >= 500) {
-                throw new Error(`Inference server error (${status}). Please try again.`);
+                throw new Error(`Render server error (${status}). Please try again.`);
             } else {
                 throw new Error(`Request failed with status ${status}: ${error.response.data?.error || 'Unknown error'}`);
             }
         } else if (error.code === 'ECONNREFUSED') {
-            throw new Error(`Cannot connect to inference server at ${getInferenceEndpoint()}. Is it running?`);
+            throw new Error(`Cannot connect to render server at ${getRenderEndpoint()}. Is it running?`);
         } else {
             throw new Error(`UI generation failed: ${error.message}`);
         }

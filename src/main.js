@@ -129,7 +129,14 @@ ipcMain.handle('discover-socket-agent', async (event, url) => {
 // Handle complete website generation
 ipcMain.handle('generate-website', async (event, descriptor) => {
   const descriptorJson = JSON.stringify(descriptor);
-  return await callPythonBridge('generate-website', [descriptorJson]);
+
+  // Get access token from storage if available
+  const authData = storageData['auth'];
+  const accessToken = authData?.accessToken || null;
+
+  // Pass access token to Python bridge if available
+  const args = accessToken ? [descriptorJson, accessToken] : [descriptorJson];
+  return await callPythonBridge('generate-website', args);
 });
 
 // Handle API calls
@@ -230,4 +237,26 @@ ipcMain.handle('wallet-has-wallet', async () => {
 ipcMain.handle('wallet-is-unlocked', async () => {
   const isUnlocked = walletInstance.isUnlocked;
   return { success: true, isUnlocked };
+});
+
+// Storage IPC handlers (for auth and other data)
+ipcMain.handle('get-storage', async (event, key) => {
+  return storageData[key] || null;
+});
+
+ipcMain.handle('set-storage', async (event, key, value) => {
+  if (value === null) {
+    delete storageData[key];
+  } else {
+    storageData[key] = value;
+  }
+  saveStorage(storageData);
+  return { success: true };
+});
+
+// Open external links
+ipcMain.handle('open-external', async (event, url) => {
+  const { shell } = require('electron');
+  await shell.openExternal(url);
+  return { success: true };
 });

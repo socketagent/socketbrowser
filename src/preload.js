@@ -30,5 +30,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Listen for navigation events from BrowserView
-  onHybridNavigate: (callback) => ipcRenderer.on('hybrid-navigate', (event, url) => callback(url))
+  onHybridNavigate: (callback) => ipcRenderer.on('hybrid-navigate', (event, url) => callback(url)),
+
+  // Storage for auth and other data
+  getStorage: (key) => ipcRenderer.invoke('get-storage', key),
+  setStorage: (key, value) => ipcRenderer.invoke('set-storage', key, value),
+
+  // Open external links
+  openExternal: (url) => ipcRenderer.invoke('open-external', url)
 });

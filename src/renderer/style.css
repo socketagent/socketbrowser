@@ -769,3 +769,149 @@ body {
     background: #e3f2fd;
     color: #2196F3;
 }
+
+/* Account Button */
+.account-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    margin-left: 10px;
+}
+
+.account-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.account-icon {
+    font-size: 18px;
+}
+
+.account-username {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+/* Account Modal Header */
+.account-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    border-bottom: 2px solid #f0f0f0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px 15px 0 0;
+}
+
+.account-header h2 {
+    margin: 0;
+    font-size: 24px;
+}
+
+/* Account Info Display */
+.account-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.account-info-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.account-info-item label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+}
+
+.account-info-item span {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* Credits Display */
+.credits-section {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.credits-section label {
+    display: block;
+    font-size: 12px;
+    color: #2e7d32;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+}
+
+.credits-display {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1b5e20;
+}
+
+/* Account Status */
+#account-status {
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 15px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Account Choice Screen */
+.account-choice-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Login/Register Forms */
+.account-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.account-form label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.account-form input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e1e1;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.account-form input:focus {
+    outline: none;
+    border-color: #667eea;
+}
