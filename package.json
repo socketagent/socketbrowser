@@ -7,24 +7,30 @@
     "start": "electron src/main.js --no-sandbox",
     "dev": "electron src/main.js --dev --no-sandbox",
     "build": "electron-builder",
-    "test": "jest"
+    "test": "jest",
+    "tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri",
+    "tauri:dev": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri dev",
+    "tauri:build": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri build"
   },
   "keywords": [
-    "electron",
+    "tauri",
+    "rust",
     "browser",
     "socket-agent",
     "llm",
     "ui-generation"
   ],
   "author": "Socket Agent Team",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "devDependencies": {
+    "@tauri-apps/cli": "^2.9.2",
     "electron": "^26.0.0",
     "electron-builder": "^24.0.0",
     "jest": "^29.0.0"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
+    "@tauri-apps/api": "^2.9.0",
     "axios": "^1.5.0",
     "bip39": "^3.1.0",
     "bs58": "^6.0.0",

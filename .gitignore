@@ -257,6 +257,12 @@ dist_electron/
 dist-electron/
 release/
 
+# Rust/Tauri
+src-tauri/target/
+src-tauri/gen/
+*.rs.bk
+Cargo.lock
+
 # Docker
 .dockerignore
 docker-compose.override.yml

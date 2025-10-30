@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket Browser</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Main Application Container -->
+    <div id="app" class="app-container">
+
+        <!-- Top Navigation Bar -->
+        <header class="top-bar">
+            <div class="nav-controls">
+                <button id="btn-back" class="nav-btn" title="Back">←</button>
+                <button id="btn-forward" class="nav-btn" title="Forward">→</button>
+                <button id="btn-home" class="nav-btn" title="Home">🏠</button>
+            </div>
+
+            <div class="address-bar">
+                <input
+                    type="text"
+                    id="url-input"
+                    placeholder="Enter Socket Agent API URL (e.g., https://api.example.com)"
+                    autocomplete="off"
+                >
+                <button id="btn-go" class="go-btn">Go</button>
+            </div>
+
+            <div class="user-controls">
+                <button id="btn-wallet" class="icon-btn" title="Wallet">💰</button>
+                <button id="btn-auth" class="icon-btn" title="Account">👤</button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="content-area">
+            <!-- Welcome Screen (shown initially) -->
+            <div id="welcome-screen" class="welcome">
+                <div class="welcome-content">
+                    <h1>🚀 Socket Browser</h1>
+                    <p class="tagline">Next-generation API browser powered by AI</p>
+                    <p class="description">
+                        Discover Socket Agent APIs and generate interactive UIs on the fly.
+                        Enter an API URL above to get started.
+                    </p>
+
+                    <div class="quick-actions">
+                        <button id="btn-setup-wallet" class="action-btn">
+                            💰 Set Up Wallet
+                        </button>
+                        <button id="btn-login" class="action-btn">
+                            👤 Sign In
+                        </button>
+                    </div>
+
+                    <div class="examples">
+                        <h3>Example APIs:</h3>
+                        <ul>
+                            <li><a href="#" data-url="https://api.example.com">https://api.example.com</a></li>
+                            <li><a href="#" data-url="http://localhost:3000">http://localhost:3000</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generated UI Container (shown after navigation) -->
+            <div id="generated-ui" class="generated-ui" style="display: none;">
+                <!-- Dynamic UI will be injected here -->
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Generating UI...</p>
+            </div>
+
+            <!-- Error Display -->
+            <div id="error-display" class="error-display" style="display: none;">
+                <div class="error-content">
+                    <h2>⚠️ Error</h2>
+                    <p id="error-message"></p>
+                    <button id="btn-dismiss-error" class="btn">Dismiss</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Wallet Panel (Sidebar) -->
+        <aside id="wallet-panel" class="side-panel" style="display: none;">
+            <div class="panel-header">
+                <h2>💰 Wallet</h2>
+                <button class="close-btn" data-close="wallet-panel">×</button>
+            </div>
+            <div class="panel-content" id="wallet-content">
+                <!-- Wallet UI will be loaded here -->
+            </div>
+        </aside>
+
+        <!-- Auth Panel (Sidebar) -->
+        <aside id="auth-panel" class="side-panel" style="display: none;">
+            <div class="panel-header">
+                <h2>👤 Account</h2>
+                <button class="close-btn" data-close="auth-panel">×</button>
+            </div>
+            <div class="panel-content" id="auth-content">
+                <!-- Auth UI will be loaded here -->
+            </div>
+        </aside>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Load Tauri API and Application Scripts -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

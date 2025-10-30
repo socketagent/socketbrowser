@@ -1,0 +1,39 @@
+[package]
+name = "socket-browser"
+version = "0.1.0"
+description = "Next-generation browser that generates UI from Socket Agent APIs using LLMs"
+authors = ["Socket Agent Team"]
+license = "BSD-3-Clause"
+repository = ""
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-shell = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.40", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Solana dependencies
+solana-sdk = "2.1"
+solana-client = "2.1"
+bs58 = "0.5"
+bip39 = "2.0"
+
+# Crypto dependencies
+aes-gcm = "0.10"
+pbkdf2 = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+hex = "0.4"
+base64 = "0.22"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
