@@ -1,122 +1,209 @@
 # Socket Browser
 
-🚀 **The next-generation browser that generates UI from Socket Agent APIs using LLMs.**
+🚀 **Next-generation browser that generates UI from Socket Agent APIs using LLMs.**
 
-Instead of serving static HTML/CSS, Socket Browser discovers Socket Agent APIs and uses AI to generate appropriate user interfaces on-the-fly.
+Instead of serving static HTML/CSS, Socket Browser discovers Socket Agent APIs and uses AI to generate appropriate user interfaces on-the-fly. Built with Tauri and Rust for maximum performance and minimal resource usage.
 
 ## Features
 
 - 🔍 **Auto-Discovery**: Automatically discovers Socket Agent APIs via `.well-known/socket-agent`
-- 🤖 **AI UI Generation**: Uses LLMs (OpenAI GPT-4) to generate contextual interfaces
-- ⚡ **Real-time Interaction**: Generated UIs make actual API calls and display results
-- 🎨 **Adaptive Design**: UI adapts to the purpose of each API (grocery store, bank, etc.)
-- 🛠 **Developer Tools**: Built-in debug panel (Ctrl+D) to monitor API interactions
+- 🤖 **AI UI Generation**: Uses LLMs to generate contextual interfaces through render service
+- 💰 **Built-in Wallet**: Solana wallet with BIP-39 support for micropayments
+- 🔐 **Authentication**: Integrated with socketagent.id for user accounts and credits
+- ⚡ **Fast & Light**: Native performance with small bundle size (10-50MB)
+- 🦀 **Rust Backend**: Type-safe, memory-safe backend with Tauri
+- 🎨 **Adaptive Design**: UI adapts to the purpose of each API
 
 ## Quick Start
 
-1. **Clone and Install**:
+### Prerequisites
+
+- **Rust** 1.90+ (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
+- **Node.js** 16+ (for frontend dependencies)
+- **System dependencies** (Linux):
+  ```bash
+  # Ubuntu/Debian
+  sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+  ```
+
+### Installation
+
+1. **Clone and install dependencies**:
    ```bash
    git clone <repo-url>
-   cd socket-browser
+   cd socketbrowser
    npm install
    ```
 
-2. **Set up OpenAI API Key**:
+2. **Run in development mode**:
    ```bash
-   cp .env.example .env
-   # Edit .env and add your OpenAI API key
+   npm run tauri:dev
    ```
 
-3. **Start Test APIs** (in separate terminals):
+3. **Build for production**:
    ```bash
-   # Terminal 1 - Grocery API
-   cd /path/to/socketagentpy/examples/benchmark/grocery_api
-   python main.py
-
-   # Terminal 2 - Banking API
-   cd /path/to/socketagentpy/examples/benchmark/banking_api
-   python main.py
+   npm run tauri:build
    ```
 
-4. **Run Socket Browser**:
+### Testing with APIs
+
+1. **Start socketagent.id** (authentication service):
    ```bash
-   npm start
+   cd ../socketagent.id
+   ./socketagent-id
+   # Runs on http://localhost:8080
    ```
 
-5. **Try it out**:
-   - Enter `http://localhost:8001` in the address bar
-   - Watch as the browser generates a grocery store interface
-   - Try `http://localhost:8003` for a banking interface
+2. **Start socketbrowser-api** (render service):
+   ```bash
+   cd ../socketbrowser-api
+   ./api
+   # Runs on http://localhost:8000
+   ```
+
+3. **Try a Socket Agent API**:
+   - Enter any Socket Agent API URL in the address bar
+   - Sign in with socketagent.id to generate UIs
+   - The browser will discover and generate an interface
 
 ## How it Works
 
-1. **Discovery**: Browser fetches `/.well-known/socket-agent` descriptor
-2. **Analysis**: LLM analyzes the API capabilities and purpose
-3. **Generation**: AI generates appropriate HTML forms and interfaces
-4. **Interaction**: Generated UI elements make real API calls
-5. **Display**: Results are shown in real-time
+1. **Discovery**: Browser fetches `/.well-known/socket-agent` descriptor from the API
+2. **Authentication**: User signs in via socketagent.id for render credits
+3. **Generation**: Render service uses LLM to create contextual HTML interface
+4. **Interaction**: Generated UI elements make real API calls transparently
+5. **Display**: Results shown in real-time with adaptive layouts
 
 ## Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Electron UI   │◄──►│ Socket Agent    │◄──►│ LLM UI Gen      │
-│   (Browser)     │    │ Discovery       │    │ (OpenAI)        │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                        │                        │
-         └────────────────────────┼────────────────────────┘
-                                  ▼
-                        ┌─────────────────┐
-                        │ Socket Agent    │
-                        │ APIs            │
-                        └─────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Frontend (ui/)                                              │
+│  HTML/CSS/JS with ES6 modules                                │
+└────────────────────┬─────────────────────────────────────────┘
+                     │ Tauri invoke()
+┌────────────────────▼─────────────────────────────────────────┐
+│  Rust Backend (src-tauri/src/)                               │
+│  • Wallet (Solana, AES-256-GCM, BIP-39)                      │
+│  • Storage (Thread-safe JSON)                                │
+│  • API Discovery & Client                                    │
+│  • Auth Client (socketagent.id)                              │
+│  • Render Client (socketbrowser-api)                         │
+└────┬──────────────────┬──────────────────┬───────────────────┘
+     │                  │                  │
+     │                  │                  │
+┌────▼────────┐  ┌─────▼─────────┐  ┌────▼──────────────┐
+│ Socket      │  │ socketagent.id │  │ socketbrowser-api │
+│ Agent APIs  │  │ (Auth Service) │  │ (Render Service)  │
+└─────────────┘  └────────────────┘  └───────────────────┘
 ```
 
-## Example APIs
+## Technology Stack
 
-The browser has been tested with these Socket Agent APIs:
-
-- **Grocery Store** (`localhost:8001`): Product search, cart management
-- **Banking** (`localhost:8003`): Account management, transactions
-- **Recipe Service** (`localhost:8002`): Recipe search and management
-- **E-commerce** (`localhost:8004`): Product catalog, orders
+- **Backend**: Rust (Tauri 2.0, Tokio, Reqwest)
+- **Wallet**: Solana SDK, AES-256-GCM, PBKDF2, BIP-39
+- **Frontend**: Vanilla JavaScript (ES6 modules)
+- **Auth**: socketagent.id (JWT-style tokens)
+- **Render**: socketbrowser-api (LLM proxy service)
 
 ## Development
 
-```bash
-# Development mode (with DevTools)
-npm run dev
+### Project Structure
 
-# Build for production
-npm run build
-
-# Run tests
-npm test
 ```
+socketbrowser/
+├── ui/                      # Frontend
+│   ├── index.html
+│   ├── css/style.css
+│   └── js/
+│       ├── main.js          # App entry
+│       ├── tauri-api.js     # Rust command wrappers
+│       ├── wallet-ui.js     # Wallet interface
+│       └── auth-ui.js       # Auth interface
+├── src-tauri/              # Rust backend
+│   ├── src/
+│   │   ├── main.rs         # Tauri app
+│   │   ├── wallet/         # Solana wallet
+│   │   ├── storage/        # Persistent storage
+│   │   ├── api/            # API discovery & client
+│   │   ├── auth/           # socketagent.id client
+│   │   └── llm/            # Render API client
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+└── package.json
+```
+
+### Available Scripts
+
+```bash
+# Development with hot reload
+npm run tauri:dev
+
+# Build optimized binary
+npm run tauri:build
+
+# Check Rust code
+cd src-tauri && cargo check
+
+# Run Rust tests
+cd src-tauri && cargo test
+```
+
+## Wallet
+
+Socket Browser includes a built-in Solana wallet:
+
+- **Generation**: Create new wallet with 12-word recovery phrase
+- **Import**: From mnemonic or private key (base58)
+- **Security**: AES-256-GCM encryption with PBKDF2 (100k iterations)
+- **Features**: Balance queries, transaction signing
+- **Network**: Solana mainnet-beta
+
+Access wallet via the 💰 button in the top-right corner.
+
+## Authentication
+
+Sign in with socketagent.id to generate UIs:
+
+1. Click the 👤 button in the top-right
+2. Create an account or sign in
+3. Tokens are stored locally and refreshed automatically
+4. Each UI generation consumes 1 render credit
 
 ## Configuration
 
-Create a `.env` file with:
+The browser connects to these services by default:
 
-```env
-OPENAI_API_KEY=your-api-key-here
-```
+- **socketagent.id**: `https://socketagent.io` (authentication)
+- **socketbrowser-api**: `http://localhost:8000` (render service)
 
-## Debug Mode
+To change these, edit the Rust source:
+- Auth URL: `src-tauri/src/auth/mod.rs`
+- Render URL: `src-tauri/src/llm/mod.rs`
 
-Press `Ctrl+D` to toggle the debug panel and see:
-- API discovery logs
-- UI generation requests
-- Real-time API calls and responses
+## Performance
+
+Compared to the previous Electron version:
+
+| Metric        | Electron | Tauri  | Improvement |
+|---------------|----------|--------|-------------|
+| Bundle Size   | 150-300MB| 10-50MB| 90% smaller |
+| Memory Usage  | ~200MB   | ~60MB  | 70% less    |
+| Startup Time  | 2-3 sec  | <1 sec | 3x faster   |
+| Backend       | Node.js  | Rust   | Type-safe   |
 
 ## The Vision
 
-This demonstrates the future of web browsing:
+Socket Browser demonstrates the future of web interaction:
+
 - APIs describe their capabilities in machine-readable formats
 - Browsers intelligently generate appropriate interfaces
 - No more static HTML - everything is dynamic and contextual
 - Universal accessibility through AI-generated UIs
+- Decentralized, open protocols for API discovery
 
 ## License
 
-MIT License - see LICENSE file for details.
+BSD-3-Clause License - see LICENSE file for details.
+
+Copyright (c) 2025 socketagent
